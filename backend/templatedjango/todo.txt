@@ -1,0 +1,12 @@
+cambiar los dos nombres de la carpeta 
+cambiar en asgi.py cambiar dentro al nuevo nombre
+cambiar linea 38 ROOT_URLCONF  y linea 56 WSGI_APPLICATION de settings al nombre nuevo 
+colocar base de datos propia
+cambiar en wsgi.py el .settings al nuevo nombre
+cambiar en manage.py el nombre antiguo por el nuevo nombre
+
+
+para los tests: py manage.py test core.tests.test_views --keepdb
+
+para la base de datos: py manage.py makemigrations
+                       py manage.py migrate 
