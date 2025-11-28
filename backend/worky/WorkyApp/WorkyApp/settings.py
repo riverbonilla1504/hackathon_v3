@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,16 +65,28 @@ TEMPLATES = [
 WSGI_APPLICATION = "WorkyApp.wsgi.application"
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'djangotests',
-        'USER': 'djangotests_user',
-        'PASSWORD': 'vsEr3czSoV5nWB0D5p1naY6EbuXAAJBs',
-        'HOST': 'dpg-cvs9n5muk2gs739prahg-a.oregon-postgres.render.com',
-        'PORT': '5432',
+if os.environ.get('DJANGO_USE_SQLITE') == '1':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'djangotests',
+            'USER': 'djangotests_user',
+            'PASSWORD': 'vsEr3czSoV5nWB0D5p1naY6EbuXAAJBs',
+            'HOST': 'dpg-cvs9n5muk2gs739prahg-a.oregon-postgres.render.com',
+            'PORT': '5432',
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+            'CONN_MAX_AGE': 60,
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
