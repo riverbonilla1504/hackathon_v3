@@ -2,7 +2,6 @@
 from pathlib import Path
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -65,7 +64,47 @@ TEMPLATES = [
 WSGI_APPLICATION = "WorkyApp.wsgi.application"
 
 
-if os.environ.get('DJANGO_USE_SQLITE') == '1':
+def _load_env():
+    cur = BASE_DIR
+    for base in [cur.parent.parent, cur.parent, cur]:
+        p = base / '.env'
+        if p.exists():
+            for line in p.read_text(encoding='utf-8').splitlines():
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    k, v = line.split('=', 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+            break
+
+_load_env()
+
+SUPABASE_DB_HOST = os.environ.get('SUPABASE_DB_HOST')
+SUPABASE_DB_NAME = os.environ.get('SUPABASE_DB_NAME')
+SUPABASE_DB_USER = os.environ.get('SUPABASE_DB_USER')
+SUPABASE_DB_PASSWORD = os.environ.get('SUPABASE_DB_PASSWORD')
+SUPABASE_DB_PORT = os.environ.get('SUPABASE_DB_PORT', '5432')
+
+USE_SQLITE = os.environ.get('DJANGO_USE_SQLITE') == '1'
+USE_SUPABASE = all([SUPABASE_DB_HOST, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD])
+
+if USE_SUPABASE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': SUPABASE_DB_NAME,
+            'USER': SUPABASE_DB_USER,
+            'PASSWORD': SUPABASE_DB_PASSWORD,
+            'HOST': SUPABASE_DB_HOST,
+            'PORT': SUPABASE_DB_PORT,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+            'CONN_MAX_AGE': 60,
+        }
+    }
+elif USE_SQLITE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -75,16 +114,8 @@ if os.environ.get('DJANGO_USE_SQLITE') == '1':
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'djangotests',
-            'USER': 'djangotests_user',
-            'PASSWORD': 'vsEr3czSoV5nWB0D5p1naY6EbuXAAJBs',
-            'HOST': 'dpg-cvs9n5muk2gs739prahg-a.oregon-postgres.render.com',
-            'PORT': '5432',
-            'OPTIONS': {
-                'sslmode': 'require',
-            },
-            'CONN_MAX_AGE': 60,
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
