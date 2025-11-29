@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NotebookGrid from '@/components/background/NotebookGrid';
 import { ArrowLeft, Check, Upload, Building2, Mail, FileText, Briefcase, Home } from 'lucide-react';
-import { saveAuth, saveEnterpriseData, fileToBase64, EnterpriseData } from '@/lib/storage';
+import { saveEnterpriseData, fileToBase64, EnterpriseData } from '@/lib/storage';
+import { supabase } from '@/lib/supabaseClient';
 
 type FormStep = 'basic' | 'contact' | 'documents' | 'job-posting';
 
@@ -135,7 +136,79 @@ export default function EnterpriseSignupPage() {
         instagram_url: formData.instagram_url,
       };
 
+      // Persist in local storage so current dashboard keeps working
       saveEnterpriseData(enterpriseData);
+      
+      // Also persist in Supabase using the normalized schema
+      const { data: company, error: companyError } = await supabase
+        .from('company')
+        .insert({
+          legal_name: formData.legal_name,
+          trade_name: formData.trade_name,
+          tax_id: formData.tax_id,
+          verification_digit: Number(formData.verification_digit || 0),
+          legal_representative: formData.legal_representative,
+          company_type: formData.company_type,
+          incorporation_date: formData.incorporation_date || null,
+        })
+        .select('id')
+        .single();
+
+      if (companyError || !company) {
+        console.error('Error creating company in Supabase:', companyError);
+      } else {
+        const companyId = company.id;
+
+        // Contact info
+        const { error: contactError } = await supabase.from('company_contact_info').upsert(
+          {
+            company_id: companyId,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            landline_phone: formData.landline_phone,
+            mobile_phone: formData.mobile_phone,
+            corporate_email: formData.corporate_email,
+            website_url: formData.website_url,
+          },
+          { onConflict: 'company_id' },
+        );
+        if (contactError) {
+          console.error('Error saving company_contact_info in Supabase:', contactError);
+        }
+
+        // Documents (we store base64 strings as text)
+        const { error: docsError } = await supabase.from('company_documents').upsert(
+          {
+            company_id: companyId,
+            chamber_of_commerce_certificate: enterpriseData.chamber_of_commerce_certificate,
+            rut_document: enterpriseData.rut_document,
+            legal_representative_id: enterpriseData.legal_representative_id,
+            company_logo: enterpriseData.company_logo,
+          },
+          { onConflict: 'company_id' },
+        );
+        if (docsError) {
+          console.error('Error saving company_documents in Supabase:', docsError);
+        }
+
+        // Job posting info
+        const { error: jobError } = await supabase.from('company_job_posting_info').upsert(
+          {
+            company_id: companyId,
+            industry_sector: formData.industry_sector,
+            company_size: formData.company_size,
+            company_description: formData.company_description,
+            linkedin_url: formData.linkedin_url,
+            facebook_url: formData.facebook_url,
+            instagram_url: formData.instagram_url,
+          },
+          { onConflict: 'company_id' },
+        );
+        if (jobError) {
+          console.error('Error saving company_job_posting_info in Supabase:', jobError);
+        }
+      }
       
       // Validate password match
       if (formData.password !== formData.confirm_password) {
@@ -148,13 +221,22 @@ export default function EnterpriseSignupPage() {
         return;
       }
 
-      // Create auth entry
-      saveAuth({
+      // Create Supabase auth user (enterprise)
+      const { error: signUpError } = await supabase.auth.signUp({
         email: formData.corporate_email,
-        password: formData.password, // In real app, this would be hashed
-        type: 'enterprise',
-        enterpriseData,
+        password: formData.password,
+        options: {
+          data: {
+            type: 'enterprise',
+          },
+        },
       });
+
+      if (signUpError) {
+        console.error('Error creating Supabase user:', signUpError);
+        alert('Error creating account. Please try again.');
+        return;
+      }
 
       router.push('/dashboard');
     } catch (error) {
@@ -226,10 +308,10 @@ export default function EnterpriseSignupPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '48px 16px',
+          padding: '32px 16px',
           perspective: '1000px',
         }}
-        className="px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20"
+        className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12"
       >
         <motion.div
           initial={{ 
@@ -260,12 +342,12 @@ export default function EnterpriseSignupPage() {
           <div
             style={{
               borderRadius: '24px',
-              backdropFilter: 'blur(24px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.75) 100%)',
-              border: '1.5px solid rgba(255, 255, 255, 0.5)',
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-              padding: '32px',
+              backdropFilter: 'blur(22px) saturate(170%)',
+              WebkitBackdropFilter: 'blur(22px) saturate(170%)',
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
+              border: '1.5px solid rgba(255, 255, 255, 0.6)',
+              boxShadow: '0 14px 50px 0 rgba(15, 23, 42, 0.25)',
+              padding: '28px',
               position: 'relative',
               overflow: 'hidden',
             }}
@@ -282,21 +364,23 @@ export default function EnterpriseSignupPage() {
 
             <div style={{ position: 'relative', zIndex: 10 }}>
               {/* Header with Logo and Back Button */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '24px',
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
+                  paddingBottom: '14px',
+                  borderBottom: '1px solid rgba(148, 163, 184, 0.35)',
+                }}
+              >
                 {/* WorkyAI Logo - Left */}
                 <Link href="/" passHref>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     style={{ cursor: 'pointer' }}
                   >
-                    <h1 
+                    <h1
                       className="text-xl sm:text-2xl md:text-3xl font-bold leading-none"
                       style={{ fontFamily: 'var(--font-cursive), cursive' }}
                     >
@@ -318,7 +402,7 @@ export default function EnterpriseSignupPage() {
                   </motion.div>
                 </Link>
 
-                {/* Back Button - Right */}
+                {/* Back to login - Right */}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -327,7 +411,7 @@ export default function EnterpriseSignupPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    padding: '8px 16px',
+                    padding: '8px 14px',
                     borderRadius: '10px',
                     background: 'rgba(255, 255, 255, 0.85)',
                     backdropFilter: 'blur(12px)',
@@ -352,8 +436,70 @@ export default function EnterpriseSignupPage() {
                   }}
                 >
                   <ArrowLeft size={16} style={{ color: '#0077b5' }} />
-                  <span>Back</span>
+                  <span>Back to login</span>
                 </motion.button>
+              </div>
+
+              {/* Title + description row */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: '16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ maxWidth: '520px' }}>
+                  <p
+                    style={{
+                      fontSize: '0.8rem',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: '#0077b5',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Enterprise onboarding
+                  </p>
+                  <h2
+                    style={{
+                      fontSize: 'clamp(1.8rem, 3.2vw, 2.4rem)',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      margin: 0,
+                    }}
+                  >
+                    Create your Worky AI company space
+                  </h2>
+                  <p
+                    style={{
+                      marginTop: '8px',
+                      fontSize: '0.9rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Complete the four short steps from left to right. Each card unlocks once the
+                    previous one is valid, so you always know what to do next.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: 'rgba(0,119,181,0.06)',
+                    border: '1px solid rgba(0,119,181,0.25)',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-secondary)',
+                    maxWidth: '260px',
+                  }}
+                >
+                  <p style={{ margin: 0 }}>
+                    <span style={{ fontWeight: 600, color: '#0077b5' }}>Tip:</span> Use your
+                    official corporate email and legal data so offers and applicants stay compliant.
+                  </p>
+                </div>
               </div>
 
               {/* Progress Steps - Compact Horizontal with Indicators and Connecting Lines */}
@@ -464,7 +610,7 @@ export default function EnterpriseSignupPage() {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
                 gap: '16px',
-                alignItems: 'start',
+                alignItems: 'stretch',
                 height: 'fit-content',
               }}>
                 {/* Basic Info Form Widget - Highest Position */}
@@ -529,7 +675,7 @@ export default function EnterpriseSignupPage() {
                   animate={{ opacity: isStepEnabled(1) ? 1 : 0.5, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1 }}
                   style={{
-                    marginTop: '32px',
+                    marginTop: '0px',
                     borderRadius: '20px',
                     backdropFilter: 'blur(20px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
@@ -540,7 +686,7 @@ export default function EnterpriseSignupPage() {
                     position: 'relative',
                     overflow: 'hidden',
                     pointerEvents: isStepEnabled(1) ? 'auto' : 'none',
-                    transform: 'translateY(32px)',
+                    transform: 'translateY(0px)',
                     width: '100%',
                     display: 'flex',
                     flexDirection: 'column',
@@ -585,7 +731,7 @@ export default function EnterpriseSignupPage() {
                   animate={{ opacity: isStepEnabled(2) ? 1 : 0.5, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
                   style={{
-                    marginTop: '64px',
+                    marginTop: '0px',
                     borderRadius: '20px',
                     backdropFilter: 'blur(20px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
@@ -596,7 +742,7 @@ export default function EnterpriseSignupPage() {
                     position: 'relative',
                     overflow: 'hidden',
                     pointerEvents: isStepEnabled(2) ? 'auto' : 'none',
-                    transform: 'translateY(64px)',
+                    transform: 'translateY(0px)',
                     width: '100%',
                     display: 'flex',
                     flexDirection: 'column',
@@ -641,7 +787,7 @@ export default function EnterpriseSignupPage() {
                   animate={{ opacity: isStepEnabled(3) ? 1 : 0.5, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.3 }}
                   style={{
-                    marginTop: '96px',
+                    marginTop: '0px',
                     borderRadius: '20px',
                     backdropFilter: 'blur(20px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(20px) saturate(180%)',
@@ -652,7 +798,7 @@ export default function EnterpriseSignupPage() {
                     position: 'relative',
                     overflow: 'hidden',
                     pointerEvents: isStepEnabled(3) ? 'auto' : 'none',
-                    transform: 'translateY(96px)',
+                    transform: 'translateY(0px)',
                     display: 'flex',
                     flexDirection: 'column',
                     width: '100%',

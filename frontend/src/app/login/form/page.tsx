@@ -1,39 +1,55 @@
-'use client';
+ 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Lottie from 'lottie-react';
 import NotebookGrid from '@/components/background/NotebookGrid';
-import { ArrowLeft, Home, LogIn } from 'lucide-react';
-import { getAuth } from '@/lib/storage';
+import { ArrowLeft, LogIn, ShieldCheck, Sparkles, BadgeCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginFormPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [heroLottieData, setHeroLottieData] = useState<any>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch('/loginindw.json')
+      .then(res => res.json())
+      .then(data => {
+        if (data.v && data.fr && data.w && data.h) {
+          setHeroLottieData(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Check if user exists in local storage
-    const auth = getAuth();
-    if (auth && auth.email === email && auth.password === password) {
-      // User authenticated, redirect to dashboard
-      if (auth.type === 'enterprise') {
-        router.push('/dashboard');
-      } else {
-        router.push('/');
-      }
-    } else {
+    setIsLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (error || !data.session) {
       alert('Invalid email or password');
+      return;
     }
+
+    router.push('/dashboard');
   };
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <NotebookGrid />
-      
-      {/* Home Button - Top Left */}
+
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -52,8 +68,8 @@ export default function LoginFormPage() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '12px 20px',
+              gap: '6px',
+              padding: '10px 18px',
               borderRadius: '12px',
               background: 'rgba(255, 255, 255, 0.15)',
               backdropFilter: 'blur(12px)',
@@ -65,20 +81,34 @@ export default function LoginFormPage() {
               fontWeight: 600,
               transition: 'all 0.3s',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-            }}
           >
-            <Home size={18} />
-            <span>Worky AI</span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                gap: '4px',
+                fontFamily: 'var(--font-cursive), cursive',
+                fontSize: 'clamp(1.2rem, 2vw, 1.6rem)',
+                lineHeight: 1,
+              }}
+            >
+              <span className="theme-text-primary">Worky</span>
+              <span
+                className="gradient-text"
+                style={{
+                  background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                AI
+              </span>
+            </span>
           </motion.button>
         </Link>
       </motion.div>
 
-      {/* Back Button - Top Right */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -111,22 +141,12 @@ export default function LoginFormPage() {
             transition: 'all 0.3s',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.95)';
-            e.currentTarget.style.borderColor = '#0077b5';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.85)';
-            e.currentTarget.style.borderColor = '#9ca3af';
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-          }}
         >
           <ArrowLeft size={18} style={{ color: '#0077b5' }} />
           <span>Back</span>
         </motion.button>
       </motion.div>
-      
+
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -137,191 +157,356 @@ export default function LoginFormPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '48px 16px',
+          padding: '32px 16px',
           perspective: '1000px',
         }}
-        className="px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20"
+        className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12"
       >
         <motion.div
-          initial={{ 
-            opacity: 0, 
-            scale: 0.7,
-            z: -200,
-            filter: 'blur(10px)'
-          }}
-          animate={{ 
-            opacity: 1, 
-            scale: 1,
-            z: 0,
-            filter: 'blur(0px)'
-          }}
-          transition={{ 
-            duration: 1.2, 
-            delay: 0.3, 
-            ease: [0.16, 1, 0.3, 1]
-          }}
+          initial={{ opacity: 0, scale: 0.9, z: -200, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, scale: 1, z: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 1.2, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            position: 'relative',
             width: '100%',
-            maxWidth: '500px',
+            maxWidth: '1200px',
             margin: '0 auto',
             transformStyle: 'preserve-3d',
           }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch"
         >
-          <div
+          <motion.div
+            initial={{ opacity: 0, x: -60, filter: 'blur(12px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              borderRadius: '24px',
-              backdropFilter: 'blur(24px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.75) 100%)',
-              border: '1.5px solid rgba(255, 255, 255, 0.5)',
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-              padding: '48px',
+              borderRadius: '28px',
+              backdropFilter: 'blur(24px) saturate(170%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(170%)',
+              background:
+                'linear-gradient(165deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+              border: '1.5px solid rgba(255, 255, 255, 0.4)',
+              boxShadow: '0 16px 60px rgba(0, 0, 0, 0.08)',
+              padding: '32px',
               position: 'relative',
               overflow: 'hidden',
+              height: '100%',
             }}
           >
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
-                opacity: 0.5,
+                background:
+                  'radial-gradient(circle at top left, rgba(0,119,181,0.2), transparent 55%)',
                 pointerEvents: 'none',
-                background: 'linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%)',
               }}
             />
-
-            <div style={{ position: 'relative', zIndex: 10 }}>
-
-              <h2
-                style={{
-                  fontSize: '2rem',
-                  fontWeight: 700,
-                  marginBottom: '32px',
-                  textAlign: 'center',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-poppins), sans-serif',
-                }}
-              >
-                Log In
-              </h2>
-
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
-                      color: 'var(--text-primary)',
-                    }}
-                  >
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: '1.5px solid #9ca3af',
-                      background: 'rgba(0, 0, 0, 0.05)',
-                      color: 'var(--text-primary)',
-                      fontSize: '1rem',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.3s',
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#0077b5';
-                      e.target.style.background = 'rgba(0, 0, 0, 0.08)';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 119, 181, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#9ca3af';
-                      e.target.style.background = 'rgba(0, 0, 0, 0.05)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      marginBottom: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
-                      color: 'var(--text-primary)',
-                    }}
-                  >
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: '1.5px solid #9ca3af',
-                      background: 'rgba(0, 0, 0, 0.05)',
-                      color: 'var(--text-primary)',
-                      fontSize: '1rem',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.3s',
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#0077b5';
-                      e.target.style.background = 'rgba(0, 0, 0, 0.08)';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(0, 119, 181, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#9ca3af';
-                      e.target.style.background = 'rgba(0, 0, 0, 0.05)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
-
-                <motion.button
-                  type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+            <div style={{ position: 'relative', zIndex: 5, height: '100%' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px' }}>
+                <div
                   style={{
-                    width: '100%',
-                    padding: '16px 32px',
-                    borderRadius: '12px',
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    color: 'white',
-                    background: '#0077b5',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0, 119, 181, 0.3)',
-                    transition: 'all 0.3s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#005885';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#0077b5';
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '16px',
+                    background: 'rgba(0,119,181,0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(0,119,181,0.2)',
                   }}
                 >
-                  Log In
-                </motion.button>
-              </form>
+                  <LogIn size={24} color="#0077b5" />
+                </div>
+                <div>
+                  <p style={{ fontSize: '0.8rem', letterSpacing: '0.1em', color: '#0077b5' }}>
+                    ENTERPRISE LOGIN
+                  </p>
+                  <h2
+                    style={{
+                      fontSize: 'clamp(1.8rem, 4vw, 2.6rem)',
+                      fontWeight: 700,
+                      margin: 0,
+                      fontFamily: 'var(--font-cursive), cursive',
+                    }}
+                  >
+                    <span className="block theme-text-primary mb-1">Worky</span>
+                    <span
+                      className="block gradient-text"
+                      style={{
+                        background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                        WebkitBackgroundClip: 'text',
+                        backgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      }}
+                    >
+                      AI
+                    </span>
+                  </h2>
+                </div>
+              </div>
+
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6,
+                  marginBottom: '24px',
+                  maxWidth: '440px',
+                }}
+              >
+                Log into your enterprise cockpit and continue where you left off with offers,
+                applicants and AI recommendations.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                {[
+                  {
+                    icon: <ShieldCheck size={18} color="#0077b5" />,
+                    title: 'Supabase session',
+                    text: 'Your login is managed securely with Supabase Auth.',
+                  },
+                  {
+                    icon: <Sparkles size={18} color="#00a0dc" />,
+                    title: 'Smart context',
+                    text: 'We remember your enterprise data to personalize insights.',
+                  },
+                ].map(item => (
+                  <div
+                    key={item.title}
+                    style={{
+                      display: 'flex',
+                      gap: '16px',
+                      alignItems: 'flex-start',
+                      padding: '16px',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(0, 119, 181, 0.15)',
+                      background: 'rgba(255, 255, 255, 0.6)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '12px',
+                        background: 'rgba(0,119,181,0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>
+                        {item.title}
+                      </p>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+                        {item.text}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ minHeight: '170px', position: 'relative' }}>
+                {heroLottieData ? (
+                  <Lottie
+                    animationData={heroLottieData}
+                    loop
+                    autoplay
+                    style={{ width: '100%', maxWidth: '320px', margin: '0 auto' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '170px',
+                      borderRadius: '24px',
+                      background: 'rgba(0,119,181,0.08)',
+                      border: '1px dashed rgba(0,119,181,0.2)',
+                    }}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          </motion.div>
+
+          <motion.aside
+            initial={{ opacity: 0, x: 60, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              borderRadius: '28px',
+              backdropFilter: 'blur(26px) saturate(190%)',
+              WebkitBackdropFilter: 'blur(26px) saturate(190%)',
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
+              border: '1.5px solid rgba(255, 255, 255, 0.5)',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.08)',
+              padding: '32px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+          >
+            <div>
+              <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', color: '#0077b5', marginBottom: 8 }}>
+                SIGN IN
+              </p>
+              <h3
+                style={{
+                  fontSize: 'clamp(1.8rem, 4vw, 2.4rem)',
+                  margin: 0,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-cursive), cursive',
+                }}
+              >
+                <span className="block theme-text-primary mb-1">Worky</span>
+                <span
+                  className="block gradient-text"
+                  style={{
+                    background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  AI
+                </span>
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.6 }}>
+                Use your registered email and password to enter the dashboard.
+              </p>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '8px' }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #9ca3af',
+                    background: 'rgba(0, 0, 0, 0.05)',
+                    color: 'var(--text-primary)',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.3s',
+                    outline: 'none',
+                  }}
+                  onFocus={e => {
+                    e.target.style.borderColor = '#0077b5';
+                    e.target.style.background = 'rgba(0, 0, 0, 0.08)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 119, 181, 0.1)';
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = '#9ca3af';
+                    e.target.style.background = 'rgba(0, 0, 0, 0.05)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #9ca3af',
+                    background: 'rgba(0, 0, 0, 0.05)',
+                    color: 'var(--text-primary)',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.3s',
+                    outline: 'none',
+                  }}
+                  onFocus={e => {
+                    e.target.style.borderColor = '#0077b5';
+                    e.target.style.background = 'rgba(0, 0, 0, 0.08)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 119, 181, 0.1)';
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = '#9ca3af';
+                    e.target.style.background = 'rgba(0, 0, 0, 0.05)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileHover={{ scale: isLoading ? 1 : 1.02 }}
+                whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                style={{
+                  width: '100%',
+                  padding: '16px 32px',
+                  borderRadius: '12px',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  color: 'white',
+                  background: isLoading ? '#9ca3af' : '#0077b5',
+                  border: 'none',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  boxShadow: isLoading ? 'none' : '0 4px 12px rgba(0, 119, 181, 0.3)',
+                  transition: 'all 0.3s',
+                }}
+              >
+                {isLoading ? 'Logging in...' : 'Log In'}
+              </motion.button>
+            </form>
+
+            <div
+              style={{
+                marginTop: 'auto',
+                paddingTop: '12px',
+                borderTop: '1px solid rgba(148, 163, 184, 0.25)',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <BadgeCheck size={16} color="#0077b5" />
+              <span>Only registered enterprises can access this dashboard.</span>
+            </div>
+          </motion.aside>
         </motion.div>
       </motion.section>
     </div>

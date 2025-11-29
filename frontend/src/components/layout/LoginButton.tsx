@@ -9,20 +9,20 @@ export default function LoginButton() {
 
   return (
     <motion.div
-      initial={{ 
-        opacity: 0, 
+      initial={{
+        opacity: 0,
         x: 50,
-        scale: 0.9
+        scale: 0.9,
       }}
-      animate={{ 
-        opacity: 1, 
+      animate={{
+        opacity: 1,
         x: 0,
-        scale: 1
+        scale: 1,
       }}
-      transition={{ 
-        duration: 0.8, 
+      transition={{
+        duration: 0.8,
         delay: 0.7,
-        ease: [0.16, 1, 0.3, 1]
+        ease: [0.16, 1, 0.3, 1],
       }}
       style={{
         position: 'fixed',
@@ -35,7 +35,7 @@ export default function LoginButton() {
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => router.push('/dashboard')}
+        onClick={() => router.push('/login')}
         style={{
           display: 'flex',
           alignItems: 'center',

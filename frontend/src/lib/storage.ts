@@ -1,5 +1,7 @@
 'use client';
 
+import { supabase } from './supabaseClient';
+
 export interface EnterpriseData {
   // Basic Company Information
   legal_name: string;
@@ -67,44 +69,17 @@ export interface Applicant {
   cv_link?: string;
 }
 
-export interface AuthData {
-  email: string;
-  password: string;
-  type: 'enterprise' | 'user';
-  enterpriseData?: EnterpriseData;
-  userData?: UserData;
-}
-
 const STORAGE_KEYS = {
-  AUTH: 'worky_ai_auth',
   ENTERPRISE: 'worky_ai_enterprise',
   USER: 'worky_ai_user',
   WORK_OFFERS: 'worky_ai_work_offers',
   APPLICANTS: 'worky_ai_applicants',
 };
 
-// Auth functions
-export const saveAuth = (authData: AuthData) => {
+// Supabase-auth logout helper
+export const logout = async () => {
+  await supabase.auth.signOut();
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(authData));
-  }
-};
-
-export const getAuth = (): AuthData | null => {
-  if (typeof window !== 'undefined') {
-    const data = localStorage.getItem(STORAGE_KEYS.AUTH);
-    return data ? JSON.parse(data) : null;
-  }
-  return null;
-};
-
-export const isAuthenticated = (): boolean => {
-  return getAuth() !== null;
-};
-
-export const logout = () => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEYS.AUTH);
     localStorage.removeItem(STORAGE_KEYS.ENTERPRISE);
     localStorage.removeItem(STORAGE_KEYS.USER);
   }
@@ -140,38 +115,75 @@ export const getUserData = (): UserData | null => {
   return null;
 };
 
-// Work Offer functions
-export const saveWorkOffers = (offers: WorkOffer[]) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.WORK_OFFERS, JSON.stringify(offers));
+// Work Offer functions (Supabase-backed)
+export const getWorkOffers = async (): Promise<WorkOffer[]> => {
+  const { data, error } = await supabase
+    .from('vacant')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching work offers from Supabase:', error);
+    return [];
   }
+
+  // Map DB rows to WorkOffer shape used in the app
+  return data.map((row: any) => ({
+    vacant_id: row.id,
+    name: row.name,
+    rol: row.role,
+    salary: row.salary ?? 0,
+    description: row.description ?? '',
+    availability: row.availability === 'on_site' ? 'on site' : row.availability,
+    location: row.location ?? '',
+    create_at: row.created_at,
+  }));
 };
 
-export const getWorkOffers = (): WorkOffer[] => {
-  if (typeof window !== 'undefined') {
-    const data = localStorage.getItem(STORAGE_KEYS.WORK_OFFERS);
-    return data ? JSON.parse(data) : [];
-  }
-  return [];
-};
+export const addWorkOffer = async (
+  offer: Omit<WorkOffer, 'vacant_id' | 'create_at'>,
+): Promise<WorkOffer | null> => {
+  const availabilityDb =
+    offer.availability === 'on site' ? 'on_site' : offer.availability;
 
-export const addWorkOffer = (offer: Omit<WorkOffer, 'vacant_id' | 'create_at'>): WorkOffer => {
-  const offers = getWorkOffers();
-  const newId = offers.length > 0 ? Math.max(...offers.map(o => o.vacant_id)) + 1 : 1;
-  const newOffer: WorkOffer = {
-    ...offer,
-    vacant_id: newId,
-    create_at: new Date().toISOString(),
+  const { data, error } = await supabase
+    .from('vacant')
+    .insert({
+      name: offer.name,
+      role: offer.rol,
+      salary: offer.salary,
+      description: offer.description,
+      availability: availabilityDb,
+      location: offer.location,
+    })
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    // eslint-disable-next-line no-console
+    console.error('Error inserting work offer into Supabase:', error);
+    return null;
+  }
+
+  return {
+    vacant_id: data.id,
+    name: data.name,
+    rol: data.role,
+    salary: data.salary ?? 0,
+    description: data.description ?? '',
+    availability: data.availability === 'on_site' ? 'on site' : data.availability,
+    location: data.location ?? '',
+    create_at: data.created_at,
   };
-  offers.push(newOffer);
-  saveWorkOffers(offers);
-  return newOffer;
 };
 
-export const deleteWorkOffer = (vacant_id: number) => {
-  const offers = getWorkOffers();
-  const filtered = offers.filter(o => o.vacant_id !== vacant_id);
-  saveWorkOffers(filtered);
+export const deleteWorkOffer = async (vacant_id: number): Promise<void> => {
+  const { error } = await supabase.from('vacant').delete().eq('id', vacant_id);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error deleting work offer from Supabase:', error);
+  }
 };
 
 // Applicant functions

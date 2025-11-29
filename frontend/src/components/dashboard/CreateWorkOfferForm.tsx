@@ -48,7 +48,7 @@ export default function CreateWorkOfferForm({ onSuccess }: CreateWorkOfferFormPr
     setIsSubmitting(true);
 
     try {
-      addWorkOffer({
+      const created = await addWorkOffer({
         name: formData.name.trim(),
         rol: formData.rol.trim(),
         salary: parseFloat(formData.salary),
@@ -56,6 +56,11 @@ export default function CreateWorkOfferForm({ onSuccess }: CreateWorkOfferFormPr
         availability: formData.availability,
         location: formData.location.trim(),
       });
+
+      if (!created) {
+        setError('Failed to create work offer in Supabase. Please try again.');
+        return;
+      }
 
       // Reset form
       setFormData({

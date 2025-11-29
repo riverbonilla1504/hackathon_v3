@@ -5,58 +5,58 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import NotebookGrid from '@/components/background/NotebookGrid';
-import { getAuth, getEnterpriseData, logout, EnterpriseData, getWorkOffers, WorkOffer } from '@/lib/storage';
+import { getEnterpriseData, logout, EnterpriseData, getWorkOffers, WorkOffer } from '@/lib/storage';
 import { Building2, Mail, FileText, Briefcase, LogOut, Home, ListChecks, Plus, User, ArrowLeft } from 'lucide-react';
 import CreateWorkOfferForm from '@/components/dashboard/CreateWorkOfferForm';
 import WorkOffersList from '@/components/dashboard/WorkOffersList';
 import WorkOfferDetail from '@/components/dashboard/WorkOfferDetail';
 import EnterpriseProfile from '@/components/dashboard/EnterpriseProfile';
+import { supabase } from '@/lib/supabaseClient';
 
 type DashboardView = 'offers' | 'create' | 'profile';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [auth, setAuth] = useState<any>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [enterpriseData, setEnterpriseData] = useState<EnterpriseData | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>('offers');
   const [workOffers, setWorkOffers] = useState<WorkOffer[]>([]);
   const [selectedOffer, setSelectedOffer] = useState<WorkOffer | null>(null);
 
   useEffect(() => {
-    // Temporarily bypass auth check - will implement proper auth later
-    const authData = getAuth();
-    if (authData) {
-      setAuth(authData);
-      const data = getEnterpriseData();
-      setEnterpriseData(data);
-    } else {
-      // Set dummy auth for now
-      setAuth({ type: 'enterprise', email: 'demo@enterprise.com' });
-      const data = getEnterpriseData();
-      setEnterpriseData(data);
-    }
-    // Load work offers
-    const offers = getWorkOffers();
-    setWorkOffers(offers);
-    // Original auth check (commented out for now):
-    // if (!authData || authData.type !== 'enterprise') {
-    //   router.push('/login');
-    //   return;
-    // }
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.push('/login');
+        return;
+      }
+
+      // Load enterprise data from local cache (already synced on signup)
+      const localEnterprise = getEnterpriseData();
+      setEnterpriseData(localEnterprise);
+
+      // Load work offers from Supabase
+      const offers = await getWorkOffers();
+      setWorkOffers(offers);
+
+      setSessionLoaded(true);
+    };
+
+    init();
   }, [router]);
 
-  const refreshWorkOffers = () => {
-    const offers = getWorkOffers();
+  const refreshWorkOffers = async () => {
+    const offers = await getWorkOffers();
     setWorkOffers(offers);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/login');
   };
 
-  if (!auth) {
-    return null; // Will redirect
+  if (!sessionLoaded) {
+    return null;
   }
 
   return (

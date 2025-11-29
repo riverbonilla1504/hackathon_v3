@@ -11,9 +11,9 @@ interface WorkOffersListProps {
 }
 
 export default function WorkOffersList({ offers, onDelete, onSelectOffer }: WorkOffersListProps) {
-  const handleDelete = (vacantId: number) => {
+  const handleDelete = async (vacantId: number) => {
     if (confirm('Are you sure you want to delete this work offer?')) {
-      deleteWorkOffer(vacantId);
+      await deleteWorkOffer(vacantId);
       onDelete();
     }
   };

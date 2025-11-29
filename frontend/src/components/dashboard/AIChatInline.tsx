@@ -27,7 +27,8 @@ export default function AIChatInline({ offer, applicants }: AIChatInlineProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const generateAIResponse = (userMessage: string): string => {
+  // Local fallback logic if API is not available
+  const generateFallbackResponse = (userMessage: string): string => {
     const lowerMessage = userMessage.toLowerCase();
     
     // Simple rule-based responses (in production, this would call an AI API)
@@ -77,16 +78,36 @@ export default function AIChatInline({ offer, applicants }: AIChatInlineProps) {
     return `I understand you're asking about "${userMessage}". Based on the ${applicants.length} applicants for the "${offer.name}" position, I can help you with:\n\n• Candidate comparisons and rankings\n• Skills analysis and trends\n• Match score explanations\n• Job posting details\n• Application statistics\n\nCould you be more specific about what you'd like to know?`;
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const question = input.trim();
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const answer = generateAIResponse(question);
+    try {
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question,
+          offer,
+          applicants,
+        }),
+      });
+
+      let answer: string;
+
+      if (!res.ok) {
+        // API error, fallback to local rules
+        answer = generateFallbackResponse(question);
+      } else {
+        const data = (await res.json()) as { answer?: string };
+        answer = data.answer || generateFallbackResponse(question);
+      }
+
       const newMessage: Message = {
         id: Date.now().toString(),
         question,
@@ -94,8 +115,18 @@ export default function AIChatInline({ offer, applicants }: AIChatInlineProps) {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, newMessage]);
+    } catch (error) {
+      console.error('Error calling AI API:', error);
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        question,
+        answer: generateFallbackResponse(question),
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, newMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const formatTime = (date: Date) => {

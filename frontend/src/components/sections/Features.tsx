@@ -165,8 +165,8 @@ export default function Features() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 'clamp(24px, 3vw, 32px)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 'clamp(16px, 2.5vw, 24px)',
             width: '100%',
           }}
         >
@@ -182,12 +182,12 @@ export default function Features() {
                   scale: 0.9,
                   filter: 'blur(8px)'
                 }}
-                whileInView={{ 
-                  opacity: 1, 
+                whileInView={{
+                  opacity: 1,
                   y: 0,
                   z: 0,
                   scale: 1,
-                  filter: 'blur(0px)'
+                  filter: 'blur(0px)',
                 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ 
@@ -195,22 +195,17 @@ export default function Features() {
                   delay: 0.3 + (index * 0.1), 
                   ease: [0.16, 1, 0.3, 1]
                 }}
-                whileHover={{ 
-                  y: -8,
-                  scale: 1.02,
-                  transition: { duration: 0.3 }
-                }}
                 style={{
                   position: 'relative',
-                  padding: 'clamp(24px, 3vw, 32px)',
-                  borderRadius: '24px',
+                  padding: '20px',
+                  borderRadius: '20px',
                   backdropFilter: 'blur(24px) saturate(180%)',
                   WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.3) 100%)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                  background:
+                    'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.75) 100%)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                  boxShadow: '0 8px 24px 0 rgba(31, 38, 135, 0.25)',
                   transformStyle: 'preserve-3d',
-                  cursor: 'pointer',
                 }}
               >
                 {/* Icon */}
@@ -225,14 +220,14 @@ export default function Features() {
                     stiffness: 200
                   }}
                   style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '16px',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '14px',
                     background: `linear-gradient(135deg, ${feature.color}15, ${feature.color}25)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '20px',
+                    marginBottom: '16px',
                     border: `1.5px solid ${feature.color}30`,
                   }}
                 >
@@ -252,10 +247,10 @@ export default function Features() {
                     delay: 0.6 + (index * 0.1)
                   }}
                   style={{
-                    fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
+                    fontSize: 'clamp(1.1rem, 2.2vw, 1.35rem)',
                     fontWeight: 600,
                     color: 'var(--text-primary)',
-                    marginBottom: '12px',
+                    marginBottom: '8px',
                     fontFamily: 'var(--font-poppins), sans-serif',
                   }}
                 >
@@ -272,7 +267,7 @@ export default function Features() {
                     delay: 0.7 + (index * 0.1)
                   }}
                   style={{
-                    fontSize: 'clamp(0.875rem, 1.5vw, 1rem)',
+                    fontSize: 'clamp(0.85rem, 1.4vw, 0.95rem)',
                     lineHeight: 1.6,
                     color: 'var(--text-secondary)',
                     opacity: 0.85,
@@ -282,19 +277,6 @@ export default function Features() {
                   {feature.description}
                 </motion.p>
 
-                {/* Hover glow effect */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  whileHover={{ opacity: 1 }}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: '24px',
-                    background: `linear-gradient(135deg, ${feature.color}08, ${feature.color}15)`,
-                    pointerEvents: 'none',
-                    zIndex: -1,
-                  }}
-                />
               </motion.div>
             );
           })}
