@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SupabaseRagSearchView, SupabaseRagHealthView, SupabaseAskView, AIHealthView, AIAskView, ProfileAIAskView
+from .views import SupabaseRagSearchView, SupabaseRagHealthView, SupabaseAskView, AIHealthView, AIAskView, ProfileAIAskView, RankingView
 
 # URLs solo para funcionalidad RAG - no requieren base de datos
 urlpatterns = [
@@ -10,4 +10,5 @@ urlpatterns = [
     path('ai/ask/', AIAskView.as_view(), name='ai_ask'),
     path('profile/ask/', ProfileAIAskView.as_view(), name='profile_ai_ask'),
     path('profile/ask', ProfileAIAskView.as_view(), name='profile_ai_ask_no_slash'),
+    path('ranking/', RankingView.as_view(), name='ranking'),
 ]
