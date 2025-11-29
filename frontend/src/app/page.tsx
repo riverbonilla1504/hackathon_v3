@@ -1,65 +1,192 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import NotebookGrid from '@/components/background/NotebookGrid';
+import TypewriterText from '@/components/animations/TypewriterText';
+import Start from '@/components/sections/Start';
+import Papers from '@/components/sections/Papers';
+import Features from '@/components/sections/Features';
+import Footer from '@/components/layout/Footer';
+import LoginButton from '@/components/layout/LoginButton';
 
 export default function Home() {
+  const [showSubtitle, setShowSubtitle] = useState(false);
+  const [typingComplete, setTypingComplete] = useState(false);
+  const startSectionRef = useRef<HTMLElement>(null);
+
+  const scrollToStart = () => {
+    if (startSectionRef.current) {
+      startSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (typingComplete) {
+      // Wait 2 seconds after typing completes, then auto-scroll
+      setTimeout(() => {
+        scrollToStart();
+      }, 2000);
+    }
+  }, [typingComplete]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="relative min-h-screen overflow-x-hidden">
+      <NotebookGrid />
+      
+      {/* Minimized Title - always visible in top-left corner */}
+      <motion.div
+        initial={{ 
+          opacity: 0, 
+          scale: 0.8,
+          x: -50,
+          y: -50
+        }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1,
+          x: 0,
+          y: 0
+        }}
+        transition={{ 
+          duration: 0.8, 
+          delay: 0.3,
+          ease: [0.16, 1, 0.3, 1]
+        }}
+        style={{
+          position: 'fixed',
+          top: 'clamp(20px, 3vw, 32px)',
+          left: 'clamp(20px, 3vw, 32px)',
+          zIndex: 50,
+          padding: 'clamp(12px, 2vw, 20px) clamp(16px, 3vw, 32px)',
+          pointerEvents: 'auto',
+          cursor: 'pointer',
+        }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        <h1 
+          className="text-3xl sm:text-4xl md:text-5xl font-bold leading-none"
+          style={{ fontFamily: 'var(--font-cursive), cursive' }}
+        >
+          <span className="block theme-text-primary mb-1">
+            Worky
+          </span>
+          <span 
+            className="block gradient-text"
+            style={{
+              background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            AI
+          </span>
+        </h1>
+      </motion.div>
+
+      {/* Login Button - top right (fixed) */}
+      <LoginButton />
+
+      {/* Hero Section - centered title */}
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 flex items-center justify-center h-screen"
+      >
+        <div className="text-center px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            {/* Main Title with 3D Effect */}
+            <motion.h1 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-7xl sm:text-8xl md:text-9xl lg:text-[12rem] font-bold mb-6 leading-none text-3d"
+              style={{ fontFamily: 'var(--font-cursive), cursive' }}
+            >
+              <span className="block theme-text-primary mb-2">
+                <TypewriterText 
+                  text="Worky" 
+                  speed={150}
+                  onComplete={() => {
+                    setTimeout(() => setShowSubtitle(true), 300);
+                  }}
+                />
+              </span>
+              <span 
+                className="block gradient-text text-3d-gradient"
+                style={{
+                  background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                {showSubtitle && (
+                  <TypewriterText 
+                    text="AI" 
+                    speed={200}
+                    onComplete={() => setTypingComplete(true)}
+                  />
+                )}
+              </span>
+            </motion.h1>
+            
+            {/* Scroll indicator */}
+            {typingComplete && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                className="mt-12"
+              >
+                <motion.div
+                  animate={{ y: [0, 10, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#0077b5',
+                    cursor: 'pointer',
+                  }}
+                  onClick={scrollToStart}
+                >
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Scroll to explore</span>
+                  <motion.svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+                  </motion.svg>
+                </motion.div>
+              </motion.div>
+            )}
+          </div>
         </div>
-      </main>
+      </motion.section>
+
+      {/* Content Sections - always visible */}
+      <Start ref={startSectionRef} />
+      <Papers />
+      <Features />
+      <Footer />
     </div>
   );
 }
