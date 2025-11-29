@@ -14,24 +14,29 @@ SECRET_KEY = 'django-insecure-@3#t8nl9m!hn*3*y86ke3=c683wosfuspep+p^x@dfgb!vd%u(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# Allow all hosts for development
+ALLOWED_HOSTS = ['*']
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
 # Application definition
 
+# Full Django apps for complete functionality
 INSTALLED_APPS = [
     'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
+    'django.contrib.auth',        # Required for auth models
+    'django.contrib.contenttypes',  # Required for REST framework
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'django.contrib.staticfiles',  # Only static files needed
     'rest_framework',
     'corsheaders',
     'core',
 ]
 
+# Full Django middleware for complete functionality
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
@@ -86,38 +91,15 @@ SUPABASE_DB_USER = os.environ.get('SUPABASE_DB_USER')
 SUPABASE_DB_PASSWORD = os.environ.get('SUPABASE_DB_PASSWORD')
 SUPABASE_DB_PORT = os.environ.get('SUPABASE_DB_PORT', '5432')
 
-USE_SQLITE = os.environ.get('DJANGO_USE_SQLITE') == '1'
-USE_SUPABASE = all([SUPABASE_DB_HOST, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD])
-
-if USE_SUPABASE:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': SUPABASE_DB_NAME,
-            'USER': SUPABASE_DB_USER,
-            'PASSWORD': SUPABASE_DB_PASSWORD,
-            'HOST': SUPABASE_DB_HOST,
-            'PORT': SUPABASE_DB_PORT,
-            'OPTIONS': {
-                'sslmode': 'require',
-            },
-            'CONN_MAX_AGE': 60,
-        }
+# For RAG functionality, we don't need direct database connection
+# We'll use Supabase REST API instead
+# Set up a dummy database configuration to allow Django to start
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',  # In-memory database for Django startup
     }
-elif USE_SQLITE:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {

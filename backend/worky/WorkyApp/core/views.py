@@ -118,7 +118,14 @@ class SupabaseRagSearchView(APIView):
                 {'role': 'user', 'content': f'Hay {total} registros en la tabla profile.'},
             ]
             sc, content = _openai_chat(messages)
-            return Response({'answer': content or f'Hay {total} registros en profile', 'matches': [], 'used': 0, 'scanned': 0, 'status_code': sc})
+            return Response({
+                'answer': content or f'Hay {total} registros en profile',
+                'matches': [],
+                'used': 0,
+                'scanned': total,
+                'status_code': sc,
+                'partial': False
+            })
         url_base = base.rstrip('/') + '/rest/v1/profile'
         params = f'?select=id,personal_information,experience,education,skills,projects&status=eq.{status_f}&limit=1000&offset='
         offset = 0
@@ -170,7 +177,15 @@ class SupabaseRagSearchView(APIView):
                 return Response({"error": "Supabase URLError"}, status=502)
         scored.sort(key=lambda x: (-x['score'], x['id'] or 0))
         timed_out = time.time() > deadline
-        return Response({"matches": scored[:limit], "scanned": total, "query": q, "partial": timed_out})
+        return Response({
+            "answer": f"Found {len(scored[:limit])} relevant profiles",
+            "matches": scored[:limit],
+            "scanned": total,
+            "query": q,
+            "partial": timed_out,
+            "used": len(scored[:limit]),
+            "status_code": 200
+        })
 
 
 class SupabaseRagHealthView(APIView):
@@ -248,7 +263,15 @@ class SupabaseAskView(APIView):
         scored.sort(key=lambda x: (-x['score'], x['id'] or 0))
         top = scored[:limit]
         answer = ' '.join([x['snippet'] for x in top])[:1000]
-        return Response({"answer": answer, "matches": top, "query": q})
+        return Response({
+            "answer": answer,
+            "matches": [{'id': str(match['id']), 'score': match['score'], 'snippet': match['snippet']} for match in top],
+            "query": q,
+            "used": len(top),
+            "scanned": len(scored),
+            "status_code": 200,
+            "partial": False
+        })
 
 
 def _openai_chat(messages, model='gpt-4.1-mini', temperature=0.2):
@@ -347,7 +370,52 @@ class AIAskView(APIView):
         ]
         status_code, content = _openai_chat(messages)
         timed_out = time.time() > deadline
-        return Response({'answer': content, 'used': len(contexts), 'status_code': status_code, 'partial': timed_out})
+        
+        # Parse the OpenAI response to extract structured information
+        answer_text = "No se encontró información relevante."
+        matched_ids = []
+        
+        if content:
+            # Try to extract answer and IDs from the response
+            lines = content.strip().split('\n')
+            answer_lines = []
+            ids_found = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Look for ID list patterns
+                if any(keyword in line.lower() for keyword in ['matched ids:', 'ids:', 'id:', 'matched:']):
+                    # Extract IDs from this line or subsequent lines
+                    import re
+                    id_matches = re.findall(r'\b\d+\b', line)
+                    if id_matches:
+                        matched_ids = [int(id_str) for id_str in id_matches]
+                    ids_found = True
+                elif not ids_found:
+                    answer_lines.append(line)
+            
+            # If we found answer lines, use them
+            if answer_lines:
+                answer_text = ' '.join(answer_lines).strip()
+            else:
+                # Fallback: use the entire content if we couldn't parse it
+                answer_text = content.strip()
+                
+            # If we didn't find explicit IDs, use the context IDs
+            if not matched_ids:
+                matched_ids = [c['id'] for c in contexts]
+        
+        return Response({
+            'answer': answer_text,
+            'matches': [{'id': str(mid), 'score': 1.0} for mid in matched_ids],
+            'used': len(contexts),
+            'scanned': len(contexts),
+            'status_code': status_code,
+            'partial': timed_out
+        })
 
 
 class ProfileAIAskView(APIView):
@@ -409,5 +477,50 @@ class ProfileAIAskView(APIView):
         ]
         status_code, content = _openai_chat(messages)
         timed_out = time.time() > deadline
-        return Response({'answer': content, 'matches': [c['id'] for c in contexts], 'used': len(contexts), 'scanned': total, 'status_code': status_code, 'partial': timed_out})
+        
+        # Parse the OpenAI response to extract structured information
+        answer_text = "No se encontró información relevante."
+        matched_ids = []
+        
+        if content:
+            # Try to extract answer and IDs from the response
+            lines = content.strip().split('\n')
+            answer_lines = []
+            ids_found = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Look for ID list patterns
+                if any(keyword in line.lower() for keyword in ['matched ids:', 'ids:', 'id:', 'matched:']):
+                    # Extract IDs from this line or subsequent lines
+                    import re
+                    id_matches = re.findall(r'\b\d+\b', line)
+                    if id_matches:
+                        matched_ids = [int(id_str) for id_str in id_matches]
+                    ids_found = True
+                elif not ids_found:
+                    answer_lines.append(line)
+            
+            # If we found answer lines, use them
+            if answer_lines:
+                answer_text = ' '.join(answer_lines).strip()
+            else:
+                # Fallback: use the entire content if we couldn't parse it
+                answer_text = content.strip()
+                
+            # If we didn't find explicit IDs, use the context IDs
+            if not matched_ids:
+                matched_ids = [c['id'] for c in contexts]
+        
+        return Response({
+            'answer': answer_text,
+            'matches': [{'id': str(mid), 'score': 1.0} for mid in matched_ids],
+            'used': len(contexts),
+            'scanned': total,
+            'status_code': status_code,
+            'partial': timed_out
+        })
 
