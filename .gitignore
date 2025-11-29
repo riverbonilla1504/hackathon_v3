@@ -1,0 +1,9 @@
+// Ignore files
+venv/
+master_resumes.jsonl
+
+# Env files
+.env
+backend/.env
+backend/.env.*
+
