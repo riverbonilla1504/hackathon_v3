@@ -750,13 +750,12 @@ class RankingView(APIView):
     def post(self, request):
         _load_env()
         body = request.data or {}
-        q = (body.get('message') or '').strip()
         status_f = body.get('status') or 'pending'
         limit = int(body.get('limit') or 5)
         include_analysis = bool(body.get('analysis', False))
         vacant_id = body.get('vacant_id')
-        if not q and not vacant_id:
-            return Response({'error': 'Missing message'}, status=400)
+        if not vacant_id:
+            return Response({'error': 'Missing vacant_id'}, status=400)
         base = os.environ.get('NEXT_PUBLIC_SUPABASE_URL')
         key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY')
         if not base or not key:
@@ -765,78 +764,73 @@ class RankingView(APIView):
             'apikey': key,
             'Authorization': 'Bearer ' + key,
         }
-        ql = q.lower()
-        query_analysis = analyze_query(q)
-        if not vacant_id:
-            m = re.findall(r"\b\d+\b", ql)
-            if m and ('vacant' in ql or 'vacante' in ql):
-                vacant_id = m[0]
-        if vacant_id:
-            sel_v = '*'
-            url_v = base.rstrip('/') + f'/rest/v1/vacant?id=eq.{vacant_id}&select={sel_v}&limit=1'
+        sel_v = '*'
+        url_v = base.rstrip('/') + f'/rest/v1/vacant?id=eq.{vacant_id}&select={sel_v}&limit=1'
+        try:
+            with urlopen(Request(url_v, headers=headers), timeout=8) as r:
+                vrows = json.loads(r.read().decode('utf-8'))
+                vacancy = vrows[0] if isinstance(vrows, list) and vrows else None
+        except HTTPError as e:
             try:
-                with urlopen(Request(url_v, headers=headers), timeout=8) as r:
-                    vrows = json.loads(r.read().decode('utf-8'))
-                    vacancy = vrows[0] if isinstance(vrows, list) and vrows else None
-            except HTTPError as e:
-                try:
-                    err = e.read().decode('utf-8')
-                except Exception:
-                    err = ''
-                return Response({'error': 'Supabase HTTPError', 'status': e.code, 'detail': err}, status=502)
-            except URLError:
-                return Response({'error': 'Supabase URLError'}, status=502)
-            vtext = _flatten_text(vacancy) if vacancy else ''
-            vquery = analyze_query(vtext) if vtext else query_analysis
-            url_base = base.rstrip('/') + '/rest/v1/profile'
-            params = f'?select=id,personal_information,experience,education,skills,projects&vacant_id=eq.{vacant_id}&limit=1000&offset='
-            offset = 0
-            all_matches = []
-            total = 0
-            deadline = time.time() + float(os.environ.get('AI_RAG_BUDGET_SEC', '8'))
-            start_time = time.time()
-            while True:
-                url = url_base + params + str(offset)
-                try:
-                    with urlopen(Request(url, headers=headers), timeout=8) as r:
-                        rows = json.loads(r.read().decode('utf-8'))
-                        if not isinstance(rows, list) or not rows:
-                            break
-                        for row in rows:
-                            ma = analyze_profile_match(row, vquery)
-                            if ma['total_score'] > 0:
-                                all_matches.append({
-                                    'id': row.get('id'),
-                                    'score': ma['total_score'],
-                                    'overall_coverage': ma.get('overall_coverage', 0),
-                                    'field_scores': ma.get('field_scores', {}),
-                                    'matched_tokens': ma.get('matched_tokens', []),
-                                    'analysis_time_ms': ma.get('analysis_time_ms', 0)
-                                })
-                        total += len(rows)
-                        offset += len(rows)
-                        if len(rows) < 1000:
-                            break
-                        if time.time() > deadline:
-                            break
-                except Exception:
-                    break
-            all_matches.sort(key=lambda x: (-x['score'], x['id'] or 0))
-            top_matches = all_matches[:limit]
-            timed_out = time.time() > deadline
-            elapsed_time = time.time() - start_time
-            response = {
-                'answer': f'Se encontraron {len(all_matches)} perfiles aptos para la vacante {vacant_id}.',
-                'matches': [{'id': str(m['id']), 'score': m['score']} for m in top_matches],
-                'used': len(top_matches),
-                'scanned': total,
-                'status_code': 200,
-                'partial': timed_out,
-                'vacant_id': str(vacant_id)
-            }
-            if include_analysis:
-                response['analysis'] = generate_analysis_summary(all_matches, vquery, total, elapsed_time)
-            return Response(response)
+                err = e.read().decode('utf-8')
+            except Exception:
+                err = ''
+            return Response({'error': 'Supabase HTTPError', 'status': e.code, 'detail': err}, status=502)
+        except URLError:
+            return Response({'error': 'Supabase URLError'}, status=502)
+        if not vacancy:
+            return Response({'error': 'Vacante no encontrada', 'vacant_id': str(vacant_id)}, status=404)
+        vtext = _flatten_text(vacancy)
+        vquery = analyze_query(vtext)
+        url_base = base.rstrip('/') + '/rest/v1/profile'
+        params = f'?select=id,personal_information,experience,education,skills,projects&vacant_id=eq.{vacant_id}&limit=1000&offset='
+        offset = 0
+        all_matches = []
+        total = 0
+        deadline = time.time() + float(os.environ.get('AI_RAG_BUDGET_SEC', '8'))
+        start_time = time.time()
+        while True:
+            url = url_base + params + str(offset)
+            try:
+                with urlopen(Request(url, headers=headers), timeout=8) as r:
+                    rows = json.loads(r.read().decode('utf-8'))
+                    if not isinstance(rows, list) or not rows:
+                        break
+                    for row in rows:
+                        ma = analyze_profile_match(row, vquery)
+                        if ma['total_score'] > 0:
+                            all_matches.append({
+                                'id': row.get('id'),
+                                'score': ma['total_score'],
+                                'overall_coverage': ma.get('overall_coverage', 0),
+                                'field_scores': ma.get('field_scores', {}),
+                                'matched_tokens': ma.get('matched_tokens', []),
+                                'analysis_time_ms': ma.get('analysis_time_ms', 0)
+                            })
+                    total += len(rows)
+                    offset += len(rows)
+                    if len(rows) < 1000:
+                        break
+                    if time.time() > deadline:
+                        break
+            except Exception:
+                break
+        all_matches.sort(key=lambda x: (-x['score'], x['id'] or 0))
+        top_matches = all_matches[:limit]
+        timed_out = time.time() > deadline
+        elapsed_time = time.time() - start_time
+        response = {
+            'answer': f'Se encontraron {len(all_matches)} perfiles aptos para la vacante {vacant_id}.',
+            'matches': [{'id': str(m['id']), 'score': m['score']} for m in top_matches],
+            'used': len(top_matches),
+            'scanned': total,
+            'status_code': 200,
+            'partial': timed_out,
+            'vacant_id': str(vacant_id)
+        }
+        if include_analysis:
+            response['analysis'] = generate_analysis_summary(all_matches, vquery, total, elapsed_time)
+        return Response(response)
         is_count = (('cuantos' in ql or 'cuántos' in ql or 'how many' in ql or 'count' in ql or 'cantidad' in ql or 'total' in ql)
                     and ('registros' in ql or 'records' in ql or 'perfiles' in ql or 'profiles' in ql or 'usuarios' in ql or 'users' in ql or 'candidatos' in ql))
         if is_count:
