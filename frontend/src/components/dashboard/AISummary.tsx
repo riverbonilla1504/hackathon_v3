@@ -145,21 +145,25 @@ export default function AISummary({ topCandidates }: AISummaryProps) {
                 <Target size={12} style={{ color: '#0077b5', marginTop: '1px' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
-                    {candidate.skills.slice(0, 3).map((skill, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          fontSize: '0.6rem',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          background: 'rgba(0, 119, 181, 0.1)',
-                          color: '#0077b5',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {skill}
-                      </span>
-                    ))}
+                    {candidate.skills.slice(0, 3).map((skill, i) => {
+                      // Handle both string and object formats
+                      const skillName = typeof skill === 'string' ? skill : (skill?.name || String(skill));
+                      return (
+                        <span
+                          key={i}
+                          style={{
+                            fontSize: '0.6rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: 'rgba(0, 119, 181, 0.1)',
+                            color: '#0077b5',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {skillName}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

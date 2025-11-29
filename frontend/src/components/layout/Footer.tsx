@@ -2,8 +2,10 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function Footer() {
+  const { t } = useTranslation();
   return (
     <motion.footer
       initial={{ opacity: 0 }}
@@ -69,7 +71,7 @@ export default function Footer() {
                 color: 'rgba(255, 255, 255, 0.9)',
               }}
             >
-              Revolutionizing recruitment with intelligent CV analysis and candidate matching.
+              {t('footer.description')}
             </p>
           </motion.div>
 
@@ -88,7 +90,7 @@ export default function Footer() {
                 marginBottom: '16px',
               }}
             >
-              Quick Links
+              {t('footer.quickLinks')}
             </h4>
             <ul
               style={{
@@ -116,7 +118,7 @@ export default function Footer() {
                     e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
                   }}
                 >
-                  Login
+                  {t('nav.login')}
                 </Link>
               </li>
               <li>
@@ -135,7 +137,7 @@ export default function Footer() {
                     e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
                   }}
                 >
-                  Sign Up
+                  {t('nav.signup')}
                 </Link>
               </li>
             </ul>
@@ -156,7 +158,7 @@ export default function Footer() {
                 marginBottom: '16px',
               }}
             >
-              Company
+              {t('footer.company')}
             </h4>
             <ul
               style={{
@@ -184,7 +186,7 @@ export default function Footer() {
                     e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
                   }}
                 >
-                  About Us
+                  {t('footer.aboutUs')}
                 </a>
               </li>
               <li>
@@ -203,7 +205,7 @@ export default function Footer() {
                     e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
                   }}
                 >
-                  Contact
+                  {t('footer.contact')}
                 </a>
               </li>
             </ul>
@@ -234,7 +236,7 @@ export default function Footer() {
                 margin: 0,
               }}
             >
-              © {new Date().getFullYear()} Worky AI. All rights reserved.
+              © {new Date().getFullYear()} Worky AI. {t('footer.rights')}
             </p>
         </motion.div>
       </div>

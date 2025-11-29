@@ -1,13 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, forwardRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Lottie from 'lottie-react';
+import { useTranslation } from '@/contexts/TranslationContext';
+import { Sparkles, Zap, Shield, TrendingUp, Users, Clock } from 'lucide-react';
 
-export default function Start() {
+const getBenefits = (t: (key: string) => string) => [
+  {
+    icon: <Zap size={24} />,
+    title: t('start.benefit1.title'),
+    description: t('start.benefit1.desc'),
+  },
+  {
+    icon: <Sparkles size={24} />,
+    title: t('start.benefit2.title'),
+    description: t('start.benefit2.desc'),
+  },
+  {
+    icon: <Shield size={24} />,
+    title: t('start.benefit3.title'),
+    description: t('start.benefit3.desc'),
+  },
+  {
+    icon: <TrendingUp size={24} />,
+    title: t('start.benefit4.title'),
+    description: t('start.benefit4.desc'),
+  },
+];
+
+const Start = forwardRef<HTMLElement>((props, ref) => {
+  const { t } = useTranslation();
   const [documentsCount, setDocumentsCount] = useState(0);
   const [lottieData, setLottieData] = useState<any>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [currentBenefitIndex, setCurrentBenefitIndex] = useState(0);
+  const benefits = getBenefits(t);
 
   useEffect(() => {
     // Load documents.json for Lottie animation
@@ -29,6 +57,14 @@ export default function Start() {
       });
   }, []);
 
+  useEffect(() => {
+    // Cycle through benefits with longer delay for better readability
+    const interval = setInterval(() => {
+      setCurrentBenefitIndex((prev) => (prev + 1) % 4);
+    }, 4000); // Increased from 3000 to 4000ms for better readability
+    return () => clearInterval(interval);
+  }, []);
+
   const handleGetStarted = () => {
     setIsAnimating(true);
     setTimeout(() => setIsAnimating(false), 600);
@@ -36,9 +72,11 @@ export default function Start() {
 
   return (
     <motion.section
+      ref={ref}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, margin: '-50px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
       style={{
         position: 'relative',
         minHeight: '100vh',
@@ -47,6 +85,7 @@ export default function Start() {
         justifyContent: 'center',
         padding: '48px 16px',
         perspective: '1000px',
+        overflow: 'visible',
       }}
       className="px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20"
     >
@@ -54,20 +93,21 @@ export default function Start() {
       <motion.div
         initial={{ 
           opacity: 0, 
-          scale: 0.7,
-          z: -200,
-          filter: 'blur(10px)'
+          scale: 0.95,
+          y: 30,
+          filter: 'blur(8px)'
         }}
-        animate={{ 
+        whileInView={{ 
           opacity: 1, 
           scale: 1,
-          z: 0,
+          y: 0,
           filter: 'blur(0px)'
         }}
+        viewport={{ once: true, margin: '-50px' }}
         transition={{ 
-          duration: 1.2, 
-          delay: 0.3, 
-          ease: [0.16, 1, 0.3, 1]
+          duration: 0.5, 
+          delay: 0.1, 
+          ease: 'easeOut'
         }}
         style={{
           position: 'relative',
@@ -97,22 +137,23 @@ export default function Start() {
                 <motion.div
                   initial={{ 
                     opacity: 0, 
-                    x: -50,
-                    z: -150,
-                    scale: 0.85,
-                    filter: 'blur(8px)'
+                    x: -40,
+                    y: 20,
+                    scale: 0.95,
+                    filter: 'blur(6px)'
                   }}
-                  animate={{ 
+                  whileInView={{ 
                     opacity: 1, 
                     x: 0,
-                    z: 0,
+                    y: 0,
                     scale: 1,
                     filter: 'blur(0px)'
                   }}
+                  viewport={{ once: true, margin: '-50px' }}
                   transition={{ 
-                    duration: 1, 
-                    delay: 0.6, 
-                    ease: [0.16, 1, 0.3, 1]
+                    duration: 0.5, 
+                    delay: 0.15, 
+                    ease: 'easeOut'
                   }}
                   style={{
                     display: 'flex',
@@ -124,30 +165,30 @@ export default function Start() {
                     transformStyle: 'preserve-3d',
                   }}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Main Title */}
                     <motion.h2
                       initial={{ 
                         opacity: 0, 
-                        y: 30,
-                        z: -100,
-                        scale: 0.9
+                        y: 20,
+                        scale: 0.97
                       }}
-                      animate={{ 
+                      whileInView={{ 
                         opacity: 1, 
                         y: 0,
-                        z: 0,
                         scale: 1
                       }}
+                      viewport={{ once: true }}
                       transition={{ 
-                        duration: 0.8, 
-                        delay: 0.8, 
-                        ease: [0.16, 1, 0.3, 1]
+                        duration: 0.4, 
+                        delay: 0.05, 
+                        ease: 'easeOut'
                       }}
                       style={{
-                        fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
-                        fontWeight: 700,
-                        lineHeight: 1.2,
-                        letterSpacing: '-0.02em',
+                        fontSize: 'clamp(2rem, 5vw, 3rem)',
+                        fontWeight: 800,
+                        lineHeight: 1.1,
+                        letterSpacing: '-0.03em',
                         fontFamily: 'var(--font-poppins), sans-serif',
                         margin: 0,
                         transformStyle: 'preserve-3d',
@@ -157,108 +198,243 @@ export default function Start() {
                         style={{
                           display: 'block',
                           color: 'var(--text-primary)',
-                          marginBottom: '6px',
+                          marginBottom: '8px',
                         }}
-                        className="block theme-text-primary mb-1.5"
+                        className="block theme-text-primary mb-2"
                       >
-                        Stop Losing Time
+                        {t('start.stopLosingTime')}
                       </span>
                       <span
                         style={{
                           display: 'block',
-                          background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                          background: 'linear-gradient(135deg, #0077b5 0%, #00a0dc 50%, #0077b5 100%)',
                           WebkitBackgroundClip: 'text',
                           backgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
+                          backgroundSize: '200% auto',
+                          animation: 'gradient 3s ease infinite',
                         }}
                         className="block gradient-text"
                       >
-                        Checking CVs
+                        {t('start.checkingCVs')}
                       </span>
                     </motion.h2>
 
-                    <motion.p
+                    {/* Animated Subtitle */}
+                    <motion.div
                       initial={{ 
                         opacity: 0, 
-                        y: 25,
-                        z: -80,
-                        scale: 0.95
+                        y: 15,
+                        scale: 0.97
                       }}
-                      animate={{ 
+                      whileInView={{ 
                         opacity: 1, 
                         y: 0,
-                        z: 0,
                         scale: 1
                       }}
+                      viewport={{ once: true }}
                       transition={{ 
-                        duration: 0.8, 
-                        delay: 1, 
-                        ease: [0.16, 1, 0.3, 1]
+                        duration: 0.4, 
+                        delay: 0.1, 
+                        ease: 'easeOut'
+                      }}
+                      whileHover={{ 
+                        scale: 1.02,
+                        y: -2,
+                        transition: { duration: 0.3 }
                       }}
                       style={{
-                        fontSize: 'clamp(0.875rem, 2vw, 1.125rem)',
-                        lineHeight: 1.75,
-                        fontWeight: 400,
-                        color: 'var(--text-primary)',
-                        opacity: 0.9,
-                        margin: 0,
-                        transformStyle: 'preserve-3d',
+                        padding: '16px 20px',
+                        borderRadius: '16px',
+                        background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 160, 220, 0.08) 100%)',
+                        border: '1.5px solid rgba(0, 119, 181, 0.2)',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
                       }}
                     >
-                      Every day, recruiters spend countless hours manually reviewing resumes, 
-                      losing valuable time that could be spent on finding the perfect candidate.
-                    </motion.p>
+                      <p
+                        style={{
+                          fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+                          fontWeight: 600,
+                          color: '#0077b5',
+                          margin: 0,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {t('start.transformHiring')}
+                      </p>
+                    </motion.div>
 
-                    <motion.p
+                    {/* Rotating Benefits */}
+                    <div style={{ minHeight: '120px', position: 'relative' }}>
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={currentBenefitIndex}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ 
+                            duration: 0.3,
+                            ease: 'easeInOut'
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '16px',
+                            padding: '20px',
+                            borderRadius: '16px',
+                            background: 'rgba(255, 255, 255, 0.6)',
+                            border: '1.5px solid rgba(0, 119, 181, 0.15)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                          }}
+                        >
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.1, duration: 0.3, ease: 'easeOut' }}
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #0077b5 0%, #00a0dc 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {benefits[currentBenefitIndex].icon}
+                          </motion.div>
+                          <div style={{ flex: 1 }}>
+                            <motion.h3
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.05, duration: 0.3, ease: 'easeOut' }}
+                              style={{
+                                fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                margin: '0 0 6px 0',
+                              }}
+                            >
+                              {benefits[currentBenefitIndex].title}
+                            </motion.h3>
+                            <motion.p
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1, duration: 0.3, ease: 'easeOut' }}
+                              style={{
+                                fontSize: 'clamp(0.875rem, 1.5vw, 1rem)',
+                                color: 'var(--text-secondary)',
+                                margin: 0,
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {benefits[currentBenefitIndex].description}
+                            </motion.p>
+                          </div>
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Key Features List */}
+                    <motion.div
                       initial={{ 
                         opacity: 0, 
-                        y: 25,
-                        z: -80,
-                        scale: 0.95
+                        y: 20
                       }}
-                      animate={{ 
+                      whileInView={{ 
                         opacity: 1, 
-                        y: 0,
-                        z: 0,
-                        scale: 1
+                        y: 0
                       }}
+                      viewport={{ once: true }}
                       transition={{ 
-                        duration: 0.8, 
-                        delay: 1.2, 
-                        ease: [0.16, 1, 0.3, 1]
+                        duration: 0.4, 
+                        delay: 0.15, 
+                        ease: 'easeOut'
                       }}
                       style={{
-                        fontSize: 'clamp(0.75rem, 1.5vw, 1rem)',
-                        lineHeight: 1.75,
-                        fontWeight: 400,
-                        color: 'var(--text-secondary)',
-                        opacity: 0.85,
-                        margin: 0,
-                        transformStyle: 'preserve-3d',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
                       }}
                     >
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Worky AI</span> revolutionizes 
-                      recruitment by intelligently analyzing CVs at scale. Transform hours of work into seconds.
-                    </motion.p>
+                      {[
+                        { icon: <Users size={18} />, text: t('start.matchRequirements') },
+                        { icon: <Clock size={18} />, text: t('start.saveTime') },
+                        { icon: <Sparkles size={18} />, text: t('login.feature3Desc') },
+                      ].map((feature, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                          whileInView={{ opacity: 1, x: 0, scale: 1 }}
+                          viewport={{ once: true }}
+                          transition={{ 
+                            delay: 0.2 + index * 0.05, 
+                            duration: 0.35,
+                            ease: 'easeOut'
+                          }}
+                          whileHover={{ 
+                            x: 5,
+                            scale: 1.02,
+                            transition: { duration: 0.2 }
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            background: 'rgba(255, 255, 255, 0.4)',
+                            border: '1px solid rgba(0, 119, 181, 0.1)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: 'rgba(0, 119, 181, 0.1)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#0077b5',
+                            }}
+                          >
+                            {feature.icon}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: 'clamp(0.875rem, 1.5vw, 1rem)',
+                              color: 'var(--text-primary)',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {feature.text}
+                          </span>
+                        </motion.div>
+                      ))}
+                    </motion.div>
                   </div>
 
                   <motion.div
                     initial={{ 
                       opacity: 0, 
-                      y: 30,
-                      z: -60,
-                      scale: 0.9
+                      y: 20,
+                      scale: 0.95
                     }}
-                    animate={{ 
+                    whileInView={{ 
                       opacity: 1, 
                       y: 0,
-                      z: 0,
                       scale: 1
                     }}
+                    viewport={{ once: true }}
                     transition={{ 
-                      duration: 0.8, 
-                      delay: 1.4, 
-                      ease: [0.16, 1, 0.3, 1]
+                      duration: 0.4, 
+                      delay: 0.25, 
+                      ease: 'easeOut'
                     }}
                     style={{
                       display: 'flex',
@@ -295,7 +471,7 @@ export default function Start() {
                         e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 119, 181, 0.3)';
                       }}
                     >
-                      Get Started
+                      {t('start.getStarted')}
                     </button>
                     <button
                       style={{
@@ -324,7 +500,7 @@ export default function Start() {
                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
                       }}
                     >
-                      Learn More
+                      {t('start.learnMore')}
                     </button>
                   </motion.div>
 
@@ -332,18 +508,17 @@ export default function Start() {
                     <motion.div
                       initial={{ 
                         opacity: 0,
-                        z: -40,
-                        scale: 0.9
+                        scale: 0.95
                       }}
-                      animate={{ 
+                      whileInView={{ 
                         opacity: 1,
-                        z: 0,
                         scale: 1
                       }}
+                      viewport={{ once: true }}
                       transition={{ 
-                        duration: 0.8, 
-                        delay: 1.6, 
-                        ease: [0.16, 1, 0.3, 1]
+                        duration: 0.4, 
+                        delay: 0.3, 
+                        ease: 'easeOut'
                       }}
                       style={{ 
                         paddingTop: '4px',
@@ -392,7 +567,7 @@ export default function Start() {
                             opacity: 0.85,
                           }}
                         >
-                          Documents Processed
+                          {t('start.documentsProcessed')}
                         </span>
                       </div>
                     </motion.div>
@@ -403,22 +578,23 @@ export default function Start() {
                 <motion.div
                   initial={{ 
                     opacity: 0, 
-                    x: 50,
-                    z: -150,
-                    scale: 0.85,
-                    filter: 'blur(8px)'
+                    x: 40,
+                    y: 20,
+                    scale: 0.95,
+                    filter: 'blur(6px)'
                   }}
-                  animate={{ 
+                  whileInView={{ 
                     opacity: 1, 
                     x: 0,
-                    z: 0,
+                    y: 0,
                     scale: 1,
                     filter: 'blur(0px)'
                   }}
+                  viewport={{ once: true, margin: '-50px' }}
                   transition={{ 
-                    duration: 1, 
-                    delay: 0.9, 
-                    ease: [0.16, 1, 0.3, 1]
+                    duration: 0.5, 
+                    delay: 0.2, 
+                    ease: 'easeOut'
                   }}
                   style={{
                     display: 'flex',
@@ -484,4 +660,8 @@ export default function Start() {
           </motion.div>
     </motion.section>
   );
-}
+});
+
+Start.displayName = 'Start';
+
+export default Start;

@@ -3,9 +3,11 @@
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { LogIn } from 'lucide-react';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function LoginButton() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <motion.div
@@ -62,7 +64,7 @@ export default function LoginButton() {
         }}
       >
         <LogIn style={{ width: '18px', height: '18px' }} />
-        <span>Login</span>
+        <span>{t('nav.login')}</span>
       </motion.button>
     </motion.div>
   );

@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Lottie from 'lottie-react';
 import NotebookGrid from '@/components/background/NotebookGrid';
-import { ArrowLeft, Check, Upload, Building2, Mail, FileText, Briefcase, Home } from 'lucide-react';
+import LanguageToggle from '@/components/layout/LanguageToggle';
+import { ArrowLeft, Check, Upload, Building2, Mail, FileText, Briefcase, UserPlus, Lock, ChevronRight, ChevronLeft } from 'lucide-react';
 import { saveEnterpriseData, fileToBase64, EnterpriseData } from '@/lib/storage';
 import { supabase } from '@/lib/supabaseClient';
+import { useNotifications } from '@/contexts/NotificationContext';
 
-type FormStep = 'basic' | 'contact' | 'documents' | 'job-posting';
+type FormStep = 'basic' | 'contact' | 'documents' | 'job-posting' | 'register';
 
 interface EnterpriseFormData {
   // Basic Company Information
@@ -49,6 +52,7 @@ interface EnterpriseFormData {
 
 export default function EnterpriseSignupPage() {
   const router = useRouter();
+  const { showError, showSuccess } = useNotifications();
   const [formData, setFormData] = useState<EnterpriseFormData>({
     legal_name: '',
     trade_name: '',
@@ -78,11 +82,38 @@ export default function EnterpriseSignupPage() {
     instagram_url: '',
   });
 
+  const [heroLottieData, setHeroLottieData] = useState<any>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  useEffect(() => {
+    fetch('/enterprise.json')
+      .then(res => res.json())
+      .then(data => {
+        if (data.v && data.fr && data.w && data.h) {
+          setHeroLottieData(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const goToNextStep = () => {
+    if (currentStepIndex < steps.length - 1 && isStepValid(steps[currentStepIndex].key)) {
+      setCurrentStepIndex(prev => prev + 1);
+    }
+  };
+
+  const goToPreviousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(prev => prev - 1);
+    }
+  };
+
   const steps: { key: FormStep; title: string; icon: any }[] = [
     { key: 'basic', title: 'Basic Company Information', icon: Building2 },
     { key: 'contact', title: 'Contact Information', icon: Mail },
     { key: 'documents', title: 'Required Documents', icon: FileText },
     { key: 'job-posting', title: 'Information for Job Posting', icon: Briefcase },
+    { key: 'register', title: 'Create Account', icon: Lock },
   ];
 
   const updateFormData = (field: keyof EnterpriseFormData, value: string | File | null) => {
@@ -100,46 +131,35 @@ export default function EnterpriseSignupPage() {
 
   const handleSubmit = async () => {
     try {
-      // Convert files to base64 for storage
-      const enterpriseData: EnterpriseData = {
-        legal_name: formData.legal_name,
-        trade_name: formData.trade_name,
-        tax_id: formData.tax_id,
-        verification_digit: formData.verification_digit,
-        legal_representative: formData.legal_representative,
-        company_type: formData.company_type,
-        incorporation_date: formData.incorporation_date,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        landline_phone: formData.landline_phone,
-        mobile_phone: formData.mobile_phone,
-        corporate_email: formData.corporate_email,
-        website_url: formData.website_url,
-        chamber_of_commerce_certificate: formData.chamber_of_commerce_certificate 
-          ? await fileToBase64(formData.chamber_of_commerce_certificate) 
-          : null,
-        rut_document: formData.rut_document 
-          ? await fileToBase64(formData.rut_document) 
-          : null,
-        legal_representative_id: formData.legal_representative_id 
-          ? await fileToBase64(formData.legal_representative_id) 
-          : null,
-        company_logo: formData.company_logo 
-          ? await fileToBase64(formData.company_logo) 
-          : null,
-        industry_sector: formData.industry_sector,
-        company_size: formData.company_size,
-        company_description: formData.company_description,
-        linkedin_url: formData.linkedin_url,
-        facebook_url: formData.facebook_url,
-        instagram_url: formData.instagram_url,
-      };
+      // Validate password match
+      if (formData.password !== formData.confirm_password) {
+        showError('Passwords do not match');
+        return;
+      }
 
-      // Persist in local storage so current dashboard keeps working
-      saveEnterpriseData(enterpriseData);
-      
-      // Also persist in Supabase using the normalized schema
+      if (formData.password.length < 6) {
+        showError('Password must be at least 6 characters long');
+        return;
+      }
+
+      // Step 1: Create Supabase auth user first
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.corporate_email,
+        password: formData.password,
+        options: {
+          data: {
+            type: 'enterprise',
+          },
+        },
+      });
+
+      if (signUpError || !authData.user) {
+        console.error('Error creating Supabase user:', signUpError);
+        showError(`Error creating account: ${signUpError?.message || 'Unknown error'}`);
+        return;
+      }
+
+      // Step 2: Create company record in database
       const { data: company, error: companyError } = await supabase
         .from('company')
         .insert({
@@ -156,92 +176,120 @@ export default function EnterpriseSignupPage() {
 
       if (companyError || !company) {
         console.error('Error creating company in Supabase:', companyError);
-      } else {
-        const companyId = company.id;
-
-        // Contact info
-        const { error: contactError } = await supabase.from('company_contact_info').upsert(
-          {
-            company_id: companyId,
-            address: formData.address,
-            city: formData.city,
-            state: formData.state,
-            landline_phone: formData.landline_phone,
-            mobile_phone: formData.mobile_phone,
-            corporate_email: formData.corporate_email,
-            website_url: formData.website_url,
-          },
-          { onConflict: 'company_id' },
-        );
-        if (contactError) {
-          console.error('Error saving company_contact_info in Supabase:', contactError);
-        }
-
-        // Documents (we store base64 strings as text)
-        const { error: docsError } = await supabase.from('company_documents').upsert(
-          {
-            company_id: companyId,
-            chamber_of_commerce_certificate: enterpriseData.chamber_of_commerce_certificate,
-            rut_document: enterpriseData.rut_document,
-            legal_representative_id: enterpriseData.legal_representative_id,
-            company_logo: enterpriseData.company_logo,
-          },
-          { onConflict: 'company_id' },
-        );
-        if (docsError) {
-          console.error('Error saving company_documents in Supabase:', docsError);
-        }
-
-        // Job posting info
-        const { error: jobError } = await supabase.from('company_job_posting_info').upsert(
-          {
-            company_id: companyId,
-            industry_sector: formData.industry_sector,
-            company_size: formData.company_size,
-            company_description: formData.company_description,
-            linkedin_url: formData.linkedin_url,
-            facebook_url: formData.facebook_url,
-            instagram_url: formData.instagram_url,
-          },
-          { onConflict: 'company_id' },
-        );
-        if (jobError) {
-          console.error('Error saving company_job_posting_info in Supabase:', jobError);
-        }
-      }
-      
-      // Validate password match
-      if (formData.password !== formData.confirm_password) {
-        alert('Passwords do not match');
+        showError(`Error creating company: ${companyError?.message || 'Unknown error'}. Please contact support.`);
         return;
       }
 
-      if (formData.password.length < 6) {
-        alert('Password must be at least 6 characters long');
+      const companyId = company.id;
+
+      // Step 3: Create contact info
+      const { error: contactError } = await supabase.from('company_contact_info').insert({
+        company_id: companyId,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        landline_phone: formData.landline_phone,
+        mobile_phone: formData.mobile_phone,
+        corporate_email: formData.corporate_email,
+        website_url: formData.website_url,
+      });
+
+      if (contactError) {
+        console.error('Error saving company_contact_info in Supabase:', contactError);
+        showError(`Error saving contact information: ${contactError.message}`);
         return;
       }
 
-      // Create Supabase auth user (enterprise)
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: formData.corporate_email,
-        password: formData.password,
-        options: {
-          data: {
-            type: 'enterprise',
-          },
+      // Step 4: Convert files to base64 and save documents
+      const chamberCert = formData.chamber_of_commerce_certificate 
+        ? await fileToBase64(formData.chamber_of_commerce_certificate) 
+        : null;
+      const rutDoc = formData.rut_document 
+        ? await fileToBase64(formData.rut_document) 
+        : null;
+      const legalRepId = formData.legal_representative_id 
+        ? await fileToBase64(formData.legal_representative_id) 
+        : null;
+      const companyLogo = formData.company_logo 
+        ? await fileToBase64(formData.company_logo) 
+        : null;
+
+      const { error: docsError } = await supabase.from('company_documents').insert({
+        company_id: companyId,
+        chamber_of_commerce_certificate: chamberCert,
+        rut_document: rutDoc,
+        legal_representative_id: legalRepId,
+        company_logo: companyLogo,
+      });
+
+      if (docsError) {
+        console.error('Error saving company_documents in Supabase:', docsError);
+        showError(`Error saving documents: ${docsError.message}`);
+        return;
+      }
+
+      // Step 5: Save job posting info
+      const { error: jobError } = await supabase.from('company_job_posting_info').insert({
+        company_id: companyId,
+        industry_sector: formData.industry_sector,
+        company_size: formData.company_size,
+        company_description: formData.company_description,
+        linkedin_url: formData.linkedin_url || null,
+        facebook_url: formData.facebook_url || null,
+        instagram_url: formData.instagram_url || null,
+      });
+
+      if (jobError) {
+        console.error('Error saving company_job_posting_info in Supabase:', jobError);
+        showError(`Error saving job posting information: ${jobError.message}`);
+        return;
+      }
+
+      // Step 6: Update user metadata with company_id
+      await supabase.auth.updateUser({
+        data: {
+          type: 'enterprise',
+          company_id: companyId,
         },
       });
 
-      if (signUpError) {
-        console.error('Error creating Supabase user:', signUpError);
-        alert('Error creating account. Please try again.');
-        return;
-      }
+      // Step 7: Build enterprise data object for local storage
+      const enterpriseData: EnterpriseData = {
+        legal_name: formData.legal_name,
+        trade_name: formData.trade_name,
+        tax_id: formData.tax_id,
+        verification_digit: formData.verification_digit,
+        legal_representative: formData.legal_representative,
+        company_type: formData.company_type,
+        incorporation_date: formData.incorporation_date,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        landline_phone: formData.landline_phone,
+        mobile_phone: formData.mobile_phone,
+        corporate_email: formData.corporate_email,
+        website_url: formData.website_url,
+        chamber_of_commerce_certificate: chamberCert,
+        rut_document: rutDoc,
+        legal_representative_id: legalRepId,
+        company_logo: companyLogo,
+        industry_sector: formData.industry_sector,
+        company_size: formData.company_size,
+        company_description: formData.company_description,
+        linkedin_url: formData.linkedin_url,
+        facebook_url: formData.facebook_url,
+        instagram_url: formData.instagram_url,
+      };
 
+      // Save to local storage for immediate access
+      saveEnterpriseData(enterpriseData);
+
+      // Success! Redirect to dashboard
+      showSuccess('Account created successfully! Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Error submitting form. Please try again.');
+      showError(`Error submitting form: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -265,10 +313,7 @@ export default function EnterpriseSignupPage() {
           formData.landline_phone &&
           formData.mobile_phone &&
           formData.corporate_email &&
-          formData.website_url &&
-          formData.password &&
-          formData.confirm_password &&
-          formData.password === formData.confirm_password
+          formData.website_url
         );
       case 'documents':
         return !!(
@@ -283,6 +328,13 @@ export default function EnterpriseSignupPage() {
           formData.company_size &&
           formData.company_description
         );
+      case 'register':
+        return !!(
+          formData.password &&
+          formData.confirm_password &&
+          formData.password === formData.confirm_password &&
+          formData.password.length >= 6
+        );
       default:
         return false;
     }
@@ -296,7 +348,91 @@ export default function EnterpriseSignupPage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <NotebookGrid />
-      
+
+      {/* Top-left: Worky AI Logo */}
+      <motion.div
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{
+          position: 'fixed',
+          top: 'clamp(20px, 3vw, 32px)',
+          left: 'clamp(20px, 3vw, 32px)',
+          zIndex: 1000,
+        }}
+      >
+        <Link href="/" passHref>
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            style={{
+              cursor: 'pointer',
+            }}
+          >
+            <h1
+              className="text-2xl sm:text-3xl md:text-4xl font-bold leading-none"
+              style={{ fontFamily: 'var(--font-cursive), cursive' }}
+            >
+              <span className="block theme-text-primary mb-1">Worky</span>
+              <span
+                className="block gradient-text"
+                style={{
+                  background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                AI
+              </span>
+            </h1>
+          </motion.div>
+        </Link>
+      </motion.div>
+
+      {/* Top-right: Back to Login Button */}
+      <motion.div
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{
+          position: 'fixed',
+          top: 'clamp(20px, 3vw, 32px)',
+          right: 'clamp(20px, 3vw, 32px)',
+          zIndex: 1000,
+        }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => router.push('/login')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: 'clamp(12px, 2vw, 20px) clamp(16px, 3vw, 32px)',
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+            fontWeight: 600,
+            transition: 'all 0.3s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+          }}
+        >
+          <ArrowLeft size={20} style={{ color: '#0077b5' }} />
+          <span>Back to login</span>
+        </motion.button>
+      </motion.div>
       
       <motion.section
         initial={{ opacity: 0 }}
@@ -314,577 +450,509 @@ export default function EnterpriseSignupPage() {
         className="px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12"
       >
         <motion.div
-          initial={{ 
-            opacity: 0, 
-            scale: 0.7,
-            z: -200,
-            filter: 'blur(10px)'
-          }}
-          animate={{ 
-            opacity: 1, 
-            scale: 1,
-            z: 0,
-            filter: 'blur(0px)'
-          }}
-          transition={{ 
-            duration: 1.2, 
-            delay: 0.3, 
-            ease: [0.16, 1, 0.3, 1]
-          }}
+          initial={{ opacity: 0, scale: 0.9, z: -200, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, scale: 1, z: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 1.2, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            position: 'relative',
             width: '100%',
-            maxWidth: '1600px',
+            maxWidth: '1200px',
             margin: '0 auto',
             transformStyle: 'preserve-3d',
           }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch"
         >
-          <div
+          {/* Left Side: Text and SVG */}
+          <motion.div
+            initial={{ opacity: 0, x: -60, filter: 'blur(12px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              borderRadius: '24px',
-              backdropFilter: 'blur(22px) saturate(170%)',
-              WebkitBackdropFilter: 'blur(22px) saturate(170%)',
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
-              border: '1.5px solid rgba(255, 255, 255, 0.6)',
-              boxShadow: '0 14px 50px 0 rgba(15, 23, 42, 0.25)',
-              padding: '28px',
+              borderRadius: '28px',
+              backdropFilter: 'blur(24px) saturate(170%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(170%)',
+              background: 'linear-gradient(165deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+              border: '1.5px solid rgba(255, 255, 255, 0.4)',
+              boxShadow: '0 16px 60px rgba(0, 0, 0, 0.08)',
+              padding: '32px',
               position: 'relative',
               overflow: 'hidden',
+              height: '100%',
             }}
           >
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
-                opacity: 0.5,
+                background: 'radial-gradient(circle at top left, rgba(0,119,181,0.2), transparent 55%)',
                 pointerEvents: 'none',
-                background: 'linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%)',
               }}
             />
-
-            <div style={{ position: 'relative', zIndex: 10 }}>
-              {/* Header with Logo and Back Button */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '20px',
-                  paddingBottom: '14px',
-                  borderBottom: '1px solid rgba(148, 163, 184, 0.35)',
-                }}
-              >
-                {/* WorkyAI Logo - Left */}
-                <Link href="/" passHref>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <h1
-                      className="text-xl sm:text-2xl md:text-3xl font-bold leading-none"
-                      style={{ fontFamily: 'var(--font-cursive), cursive' }}
-                    >
-                      <span className="block theme-text-primary mb-0.5">
-                        Worky
-                      </span>
-                      <span 
-                        className="block gradient-text"
-                        style={{
-                          background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
-                          WebkitBackgroundClip: 'text',
-                          backgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                        }}
-                      >
-                        AI
-                      </span>
-                    </h1>
-                  </motion.div>
-                </Link>
-
-                {/* Back to login - Right */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push('/login')}
+            <div style={{ position: 'relative', zIndex: 5, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px' }}>
+                <div
                   style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '16px',
+                    background: 'rgba(0,119,181,0.12)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1.5px solid #9ca3af',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    transition: 'all 0.3s',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.95)';
-                    e.currentTarget.style.borderColor = '#0077b5';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.85)';
-                    e.currentTarget.style.borderColor = '#9ca3af';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                    justifyContent: 'center',
+                    border: '1px solid rgba(0,119,181,0.2)',
                   }}
                 >
-                  <ArrowLeft size={16} style={{ color: '#0077b5' }} />
-                  <span>Back to login</span>
-                </motion.button>
-              </div>
-
-              {/* Title + description row */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: '16px',
-                  marginBottom: '20px',
-                }}
-              >
-                <div style={{ maxWidth: '520px' }}>
-                  <p
-                    style={{
-                      fontSize: '0.8rem',
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      color: '#0077b5',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    Enterprise onboarding
-                  </p>
+                  <Building2 size={24} color="#0077b5" />
+                </div>
+                <div>
+                  <p style={{ fontSize: '0.8rem', letterSpacing: '0.1em', color: '#0077b5' }}>ENTERPRISE ONBOARDING</p>
                   <h2
                     style={{
-                      fontSize: 'clamp(1.8rem, 3.2vw, 2.4rem)',
+                      fontSize: 'clamp(1.8rem, 4vw, 2.6rem)',
                       fontWeight: 700,
-                      color: 'var(--text-primary)',
                       margin: 0,
+                      color: 'var(--text-primary)',
                     }}
                   >
                     Create your Worky AI company space
                   </h2>
-                  <p
+                </div>
+              </div>
+
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6,
+                  marginBottom: '24px',
+                  maxWidth: '440px',
+                }}
+              >
+                Complete each step to unlock the next. Each section guides you through the registration process with clear validation.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                {[
+                  {
+                    icon: <Building2 size={18} color="#0077b5" />,
+                    title: 'Company information',
+                    text: 'Legal details and corporate structure.',
+                  },
+                  {
+                    icon: <Mail size={18} color="#00a0dc" />,
+                    title: 'Contact & credentials',
+                    text: 'Corporate email and account setup.',
+                  },
+                  {
+                    icon: <FileText size={18} color="#005885" />,
+                    title: 'Documentation',
+                    text: 'Required certificates and compliance files.',
+                  },
+                ].map(item => (
+                  <div
+                    key={item.title}
                     style={{
-                      marginTop: '8px',
-                      fontSize: '0.9rem',
-                      color: 'var(--text-secondary)',
-                      lineHeight: 1.6,
+                      display: 'flex',
+                      gap: '12px',
+                      padding: '12px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.5)',
+                      border: '1px solid rgba(0, 119, 181, 0.1)',
                     }}
                   >
-                    Complete the four short steps from left to right. Each card unlocks once the
-                    previous one is valid, so you always know what to do next.
-                  </p>
-                </div>
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    background: 'rgba(0,119,181,0.06)',
-                    border: '1px solid rgba(0,119,181,0.25)',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-secondary)',
-                    maxWidth: '260px',
-                  }}
-                >
-                  <p style={{ margin: 0 }}>
-                    <span style={{ fontWeight: 600, color: '#0077b5' }}>Tip:</span> Use your
-                    official corporate email and legal data so offers and applicants stay compliant.
-                  </p>
-                </div>
+                    <div style={{ flexShrink: 0 }}>{item.icon}</div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {item.title}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.text}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* Progress Steps - Compact Horizontal with Indicators and Connecting Lines */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'flex-start',
-                marginBottom: '32px', 
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-                position: 'relative',
-              }}>
-                {steps.map((step, index) => {
-                  const isCompleted = isStepCompleted(step.key);
-                  const isEnabled = isStepEnabled(index);
-                  const Icon = step.icon;
-                  const stepNumber = String(index + 1).padStart(2, '0');
-                  const isLast = index === steps.length - 1;
-                  // Show connecting line if current step is completed
-                  const showConnectingLine = isCompleted && !isLast;
-
-                  return (
-                    <div
-                      key={step.key}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        position: 'relative',
-                        opacity: isEnabled ? 1 : 0.4,
-                      }}
-                    >
-                      {/* Connecting Line */}
-                      {!isLast && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '20px',
-                            left: '50%',
-                            width: '100%',
-                            height: '2px',
-                            background: showConnectingLine
-                              ? 'linear-gradient(to right, #0077b5, #0077b5)'
-                              : 'rgba(255, 255, 255, 0.2)',
-                            zIndex: 0,
-                            transform: 'translateX(20px)',
-                            transition: 'all 0.3s',
-                          }}
-                        />
-                      )}
-                      
-                      {/* Step Indicator */}
-                      <div
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: isCompleted
-                            ? '#0077b5'
-                            : 'rgba(255, 255, 255, 0.1)',
-                          border: isCompleted ? '2px solid #0077b5' : '2px solid rgba(255, 255, 255, 0.2)',
-                          color: isCompleted ? 'white' : 'var(--text-secondary)',
-                          position: 'relative',
-                          zIndex: 1,
-                        }}
-                      >
-                        {isCompleted ? (
-                          <Check style={{ width: '18px', height: '18px' }} />
-                        ) : (
-                          <>
-                            <span style={{
-                              fontSize: '0.6rem',
-                              fontWeight: 700,
-                              lineHeight: 1,
-                              marginBottom: '2px',
-                            }}>
-                              {stepNumber}
-                            </span>
-                            <Icon style={{ width: '14px', height: '14px' }} />
-                          </>
-                        )}
-                      </div>
-                      
-                      {/* Step Title */}
-                      <span
-                        style={{
-                          marginTop: '8px',
-                          fontSize: '0.65rem',
-                          textAlign: 'center',
-                          color: isCompleted ? 'var(--text-primary)' : 'var(--text-secondary)',
-                          fontWeight: isCompleted ? 600 : 400,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {step.title.split(' ')[0]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* All Forms Horizontal Cascade - Each in Separate Widget */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                gap: '16px',
-                alignItems: 'stretch',
-                height: 'fit-content',
-              }}>
-                {/* Basic Info Form Widget - Highest Position */}
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: isStepEnabled(0) ? 1 : 0.5, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  style={{
-                    marginTop: '0px',
-                    borderRadius: '20px',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                    border: '1.5px solid rgba(0, 119, 181, 0.3)',
-                    boxShadow: '0 8px 24px rgba(0, 119, 181, 0.15)',
-                    padding: '16px',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    pointerEvents: isStepEnabled(0) ? 'auto' : 'none',
-                    transform: 'translateY(0px)',
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.3,
-                    pointerEvents: 'none',
-                    background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, transparent 100%)',
-                  }} />
-                  <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{
-                      marginBottom: '12px',
+              {/* Lottie Animation */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
+                {heroLottieData ? (
+                  <Lottie
+                    animationData={heroLottieData}
+                    loop
+                    autoplay
+                    style={{ width: '100%', maxWidth: '320px' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '200px',
+                      borderRadius: '24px',
+                      background: 'rgba(0,119,181,0.08)',
+                      border: '1px dashed rgba(0,119,181,0.2)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                    }}>
-                      <Building2 size={20} style={{ color: isStepCompleted('basic') ? '#0077b5' : '#9ca3af' }} />
-                      <h3 style={{
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                      }}>
-                        Basic Info
-                      </h3>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <BasicInfoForm
-                        formData={formData}
-                        updateFormData={updateFormData}
-                        disabled={!isStepEnabled(0)}
-                      />
-                    </div>
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Building2 size={48} color="#0077b5" style={{ opacity: 0.3 }} />
                   </div>
-                </motion.div>
-
-                {/* Contact Info Form Widget - Second Position */}
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: isStepEnabled(1) ? 1 : 0.5, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                  style={{
-                    marginTop: '0px',
-                    borderRadius: '20px',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.75) 100%)',
-                    border: '1.5px solid rgba(0, 119, 181, 0.25)',
-                    boxShadow: '0 8px 24px rgba(0, 119, 181, 0.12)',
-                    padding: '16px',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    pointerEvents: isStepEnabled(1) ? 'auto' : 'none',
-                    transform: 'translateY(0px)',
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.25,
-                    pointerEvents: 'none',
-                    background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.08) 0%, transparent 100%)',
-                  }} />
-                  <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}>
-                      <Mail size={20} style={{ color: isStepCompleted('contact') ? '#0077b5' : '#9ca3af' }} />
-                      <h3 style={{
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                      }}>
-                        Contact
-                      </h3>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <ContactInfoForm
-                        formData={formData}
-                        updateFormData={updateFormData}
-                        disabled={!isStepEnabled(1)}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Documents Form Widget - Third Position */}
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: isStepEnabled(2) ? 1 : 0.5, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  style={{
-                    marginTop: '0px',
-                    borderRadius: '20px',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.7) 100%)',
-                    border: '1.5px solid rgba(0, 119, 181, 0.2)',
-                    boxShadow: '0 8px 24px rgba(0, 119, 181, 0.1)',
-                    padding: '16px',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    pointerEvents: isStepEnabled(2) ? 'auto' : 'none',
-                    transform: 'translateY(0px)',
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.2,
-                    pointerEvents: 'none',
-                    background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.06) 0%, transparent 100%)',
-                  }} />
-                  <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}>
-                      <FileText size={20} style={{ color: isStepCompleted('documents') ? '#0077b5' : '#9ca3af' }} />
-                      <h3 style={{
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                      }}>
-                        Documents
-                      </h3>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <DocumentsForm
-                        formData={formData}
-                        updateFormData={updateFormData}
-                        disabled={!isStepEnabled(2)}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Job Posting Form Widget + Submit Button - Lowest Position */}
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: isStepEnabled(3) ? 1 : 0.5, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  style={{
-                    marginTop: '0px',
-                    borderRadius: '20px',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.65) 100%)',
-                    border: '1.5px solid rgba(0, 119, 181, 0.15)',
-                    boxShadow: '0 8px 24px rgba(0, 119, 181, 0.08)',
-                    padding: '16px',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    pointerEvents: isStepEnabled(3) ? 'auto' : 'none',
-                    transform: 'translateY(0px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '100%',
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.15,
-                    pointerEvents: 'none',
-                    background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.04) 0%, transparent 100%)',
-                  }} />
-                  <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{
-                      marginBottom: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}>
-                      <Briefcase size={20} style={{ color: isStepCompleted('job-posting') ? '#0077b5' : '#9ca3af' }} />
-                      <h3 style={{
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                      }}>
-                        Job Posting
-                      </h3>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <JobPostingForm
-                        formData={formData}
-                        updateFormData={updateFormData}
-                        disabled={!isStepEnabled(3)}
-                      />
-                    </div>
-                    
-                    {/* Submit Button in Last Widget */}
-                    <div style={{ 
-                      marginTop: 'auto',
-                      paddingTop: '20px',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.3)',
-                    }}>
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleSubmit}
-                        disabled={!isStepValid('basic') || !isStepValid('contact') || !isStepValid('documents') || !isStepValid('job-posting')}
-                        style={{
-                          width: '100%',
-                          padding: '14px 24px',
-                          borderRadius: '12px',
-                          fontWeight: 600,
-                          fontSize: '0.95rem',
-                          color: 'white',
-                          background: (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting')) 
-                            ? '#0077b5' 
-                            : 'rgba(0, 119, 181, 0.5)',
-                          border: 'none',
-                          cursor: (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting')) 
-                            ? 'pointer' 
-                            : 'not-allowed',
-                          boxShadow: '0 4px 12px rgba(0, 119, 181, 0.3)',
-                          transition: 'all 0.3s',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting')) {
-                            e.currentTarget.style.background = '#005885';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting')) {
-                            e.currentTarget.style.background = '#0077b5';
-                          }
-                        }}
-                      >
-                        Submit Registration
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
+                )}
               </div>
             </div>
-          </div>
+          </motion.div>
+
+          {/* Right Side: Form Steps */}
+          <motion.div
+            initial={{ opacity: 0, x: 60, filter: 'blur(12px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              borderRadius: '28px',
+              backdropFilter: 'blur(24px) saturate(170%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(170%)',
+              background: 'linear-gradient(165deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+              border: '1.5px solid rgba(255, 255, 255, 0.4)',
+              boxShadow: '0 16px 60px rgba(0, 0, 0, 0.08)',
+              padding: '32px',
+              position: 'relative',
+              overflow: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(circle at top right, rgba(0,119,181,0.2), transparent 55%)',
+                pointerEvents: 'none',
+              }}
+            />
+            <div style={{ position: 'relative', zIndex: 5, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {/* Progress Steps - Compact Horizontal */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'flex-start',
+                    marginBottom: '16px', 
+                    paddingBottom: '16px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                    position: 'relative',
+                  }}>
+                    {steps.map((step, index) => {
+                      const isCompleted = isStepCompleted(step.key);
+                      const isEnabled = isStepEnabled(index);
+                      const Icon = step.icon;
+                      const stepNumber = String(index + 1).padStart(2, '0');
+                      const isLast = index === steps.length - 1;
+                      const showConnectingLine = isCompleted && !isLast;
+
+                      return (
+                        <div
+                          key={step.key}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            position: 'relative',
+                            opacity: isEnabled ? 1 : 0.4,
+                          }}
+                        >
+                          {!isLast && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: '18px',
+                                left: '50%',
+                                width: '100%',
+                                height: '1px',
+                                background: showConnectingLine
+                                  ? 'linear-gradient(to right, #0077b5, #0077b5)'
+                                  : 'rgba(255, 255, 255, 0.2)',
+                                zIndex: 0,
+                                transform: 'translateX(18px)',
+                                transition: 'all 0.3s',
+                              }}
+                            />
+                          )}
+                          
+                          <div
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: isCompleted
+                                ? '#0077b5'
+                                : 'rgba(255, 255, 255, 0.1)',
+                              border: isCompleted ? '2px solid #0077b5' : '2px solid rgba(255, 255, 255, 0.2)',
+                              color: isCompleted ? 'white' : 'var(--text-secondary)',
+                              position: 'relative',
+                              zIndex: 1,
+                            }}
+                          >
+                            {isCompleted ? (
+                              <Check style={{ width: '16px', height: '16px' }} />
+                            ) : (
+                              <>
+                                <span style={{
+                                  fontSize: '0.55rem',
+                                  fontWeight: 700,
+                                  lineHeight: 1,
+                                  marginBottom: '2px',
+                                }}>
+                                  {stepNumber}
+                                </span>
+                                <Icon style={{ width: '12px', height: '12px' }} />
+                              </>
+                            )}
+                          </div>
+                          
+                          <span
+                            style={{
+                              marginTop: '6px',
+                              fontSize: '0.65rem',
+                              textAlign: 'center',
+                              color: isCompleted ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              fontWeight: isCompleted ? 600 : 400,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {step.title.split(' ')[0]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Single Form Container - Shows one step at a time */}
+                  <div style={{
+                    position: 'relative',
+                    minHeight: '400px',
+                  }}>
+                    <AnimatePresence mode="wait">
+                      {steps.map((step, index) => {
+                        if (index !== currentStepIndex) return null;
+                        
+                        const Icon = step.icon;
+                        const isCurrentStep = index === currentStepIndex;
+                        const isEnabled = isStepEnabled(index);
+                        const isCompleted = isStepCompleted(step.key);
+                        const isLast = index === steps.length - 1;
+
+                        return (
+                          <motion.div
+                            key={step.key}
+                            initial={{ opacity: 0, x: 40, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: -40, scale: 0.95 }}
+                            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                            style={{
+                              borderRadius: '20px',
+                              backdropFilter: 'blur(20px) saturate(180%)',
+                              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
+                              border: '1.5px solid rgba(0, 119, 181, 0.3)',
+                              boxShadow: '0 8px 24px rgba(0, 119, 181, 0.15)',
+                              padding: '28px',
+                              position: 'relative',
+                              overflow: 'hidden',
+                              width: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}
+                          >
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              opacity: 0.3,
+                              pointerEvents: 'none',
+                              background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, transparent 100%)',
+                            }} />
+                            
+                            <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                              {/* Step Header */}
+                              <div style={{
+                                marginBottom: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                              }}>
+                                <div style={{
+                                  width: '48px',
+                                  height: '48px',
+                                  borderRadius: '16px',
+                                  background: isCompleted ? 'rgba(0,119,181,0.12)' : 'rgba(0,119,181,0.08)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  border: `1.5px solid ${isCompleted ? '#0077b5' : 'rgba(0,119,181,0.2)'}`,
+                                }}>
+                                  <Icon size={24} style={{ color: isCompleted ? '#0077b5' : '#9ca3af' }} />
+                                </div>
+                                <div>
+                                  <p style={{
+                                    fontSize: '0.75rem',
+                                    letterSpacing: '0.1em',
+                                    color: '#0077b5',
+                                    margin: 0,
+                                    marginBottom: '4px',
+                                  }}>
+                                    STEP {String(index + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
+                                  </p>
+                                  <h3 style={{
+                                    fontSize: '1.25rem',
+                                    fontWeight: 700,
+                                    color: 'var(--text-primary)',
+                                    margin: 0,
+                                  }}>
+                                    {step.title}
+                                  </h3>
+                                </div>
+                              </div>
+
+                              {/* Form Content */}
+                              <div style={{ flex: 1, marginBottom: '24px' }}>
+                                {step.key === 'basic' && (
+                                  <BasicInfoForm
+                                    formData={formData}
+                                    updateFormData={updateFormData}
+                                    disabled={!isEnabled}
+                                  />
+                                )}
+                                {step.key === 'contact' && (
+                                  <ContactInfoForm
+                                    formData={formData}
+                                    updateFormData={updateFormData}
+                                    disabled={!isEnabled}
+                                  />
+                                )}
+                                {step.key === 'documents' && (
+                                  <DocumentsForm
+                                    formData={formData}
+                                    updateFormData={updateFormData}
+                                    disabled={!isEnabled}
+                                  />
+                                )}
+                                {step.key === 'job-posting' && (
+                                  <JobPostingForm
+                                    formData={formData}
+                                    updateFormData={updateFormData}
+                                    disabled={!isEnabled}
+                                  />
+                                )}
+                                {step.key === 'register' && (
+                                  <RegistrationForm
+                                    formData={formData}
+                                    updateFormData={updateFormData}
+                                    disabled={!isEnabled}
+                                  />
+                                )}
+                              </div>
+
+                              {/* Navigation Buttons */}
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px',
+                                paddingTop: '20px',
+                                borderTop: '1px solid rgba(255, 255, 255, 0.3)',
+                              }}>
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={goToPreviousStep}
+                                  disabled={currentStepIndex === 0}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '12px 20px',
+                                    borderRadius: '12px',
+                                    fontWeight: 600,
+                                    fontSize: '0.9rem',
+                                    color: currentStepIndex === 0 ? '#9ca3af' : 'var(--text-primary)',
+                                    background: currentStepIndex === 0 ? 'rgba(0, 0, 0, 0.02)' : 'rgba(255, 255, 255, 0.8)',
+                                    border: '1.5px solid rgba(0, 119, 181, 0.2)',
+                                    cursor: currentStepIndex === 0 ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.3s',
+                                  }}
+                                >
+                                  <ChevronLeft size={18} />
+                                  Previous
+                                </motion.button>
+
+                                {isLast ? (
+                                  <motion.button
+                                    type="button"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleSubmit}
+                                    disabled={!isStepValid('basic') || !isStepValid('contact') || !isStepValid('documents') || !isStepValid('job-posting') || !isStepValid('register')}
+                                    style={{
+                                      flex: 1,
+                                      padding: '14px 28px',
+                                      borderRadius: '12px',
+                                      fontWeight: 600,
+                                      fontSize: '0.95rem',
+                                      color: 'white',
+                                      background: (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting') && isStepValid('register')) 
+                                        ? '#0077b5' 
+                                        : 'rgba(0, 119, 181, 0.5)',
+                                      border: 'none',
+                                      cursor: (isStepValid('basic') && isStepValid('contact') && isStepValid('documents') && isStepValid('job-posting') && isStepValid('register')) 
+                                        ? 'pointer' 
+                                        : 'not-allowed',
+                                      boxShadow: '0 4px 12px rgba(0, 119, 181, 0.3)',
+                                      transition: 'all 0.3s',
+                                    }}
+                                  >
+                                    Create Account & Register
+                                  </motion.button>
+                                ) : (
+                                  <motion.button
+                                    type="button"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={goToNextStep}
+                                    disabled={!isStepValid(step.key)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '12px 24px',
+                                      borderRadius: '12px',
+                                      fontWeight: 600,
+                                      fontSize: '0.9rem',
+                                      color: 'white',
+                                      background: isStepValid(step.key) ? '#0077b5' : 'rgba(0, 119, 181, 0.5)',
+                                      border: 'none',
+                                      cursor: isStepValid(step.key) ? 'pointer' : 'not-allowed',
+                                      boxShadow: isStepValid(step.key) ? '0 4px 12px rgba(0, 119, 181, 0.3)' : 'none',
+                                      transition: 'all 0.3s',
+                                    }}
+                                  >
+                                    Next
+                                    <ChevronRight size={18} />
+                                  </motion.button>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+            </div>
+          </motion.div>
         </motion.div>
       </motion.section>
+
+      {/* Language Toggle */}
+      <LanguageToggle />
     </div>
   );
 }
@@ -905,14 +973,13 @@ function BasicInfoForm({
         display: 'flex', 
         flexDirection: 'column', 
         gap: '10px',
-        transformStyle: 'preserve-3d',
       }}
     >
       <FormField
         label="Legal Name"
         value={formData.legal_name}
         onChange={(e) => updateFormData('legal_name', e.target.value)}
-        placeholder="Legal name according to Chamber of Commerce"
+        placeholder="Legal name"
         required
         disabled={disabled}
       />
@@ -920,21 +987,21 @@ function BasicInfoForm({
         label="Trade Name"
         value={formData.trade_name}
         onChange={(e) => updateFormData('trade_name', e.target.value)}
-        placeholder="Business or brand name"
+        placeholder="Business name"
         required
         disabled={disabled}
       />
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
         <FormField
-          label="Tax ID (NIT)"
+          label="Tax ID"
           value={formData.tax_id}
           onChange={(e) => updateFormData('tax_id', e.target.value)}
-          placeholder="NIT number"
+          placeholder="NIT"
           required
           disabled={disabled}
         />
         <FormField
-          label="Verification Digit"
+          label="Verification"
           value={formData.verification_digit}
           onChange={(e) => updateFormData('verification_digit', e.target.value)}
           placeholder="Digit"
@@ -947,7 +1014,7 @@ function BasicInfoForm({
         label="Legal Representative"
         value={formData.legal_representative}
         onChange={(e) => updateFormData('legal_representative', e.target.value)}
-        placeholder="Full name of the legal representative"
+        placeholder="Full name"
         required
         disabled={disabled}
       />
@@ -955,7 +1022,7 @@ function BasicInfoForm({
         label="Company Type"
         value={formData.company_type}
         onChange={(e) => updateFormData('company_type', e.target.value)}
-        placeholder="S.A.S., LTDA, S.A., etc."
+        placeholder="S.A.S., LTDA, etc."
         required
         disabled={disabled}
       />
@@ -971,7 +1038,7 @@ function BasicInfoForm({
   );
 }
 
-// Contact Information Form
+// Contact Information Form (without password fields)
 function ContactInfoForm({
   formData,
   updateFormData,
@@ -987,14 +1054,13 @@ function ContactInfoForm({
         display: 'flex', 
         flexDirection: 'column', 
         gap: '10px',
-        transformStyle: 'preserve-3d',
       }}
     >
       <FormField
         label="Address"
         value={formData.address}
         onChange={(e) => updateFormData('address', e.target.value)}
-        placeholder="Registered physical address"
+        placeholder="Physical address"
         required
         disabled={disabled}
       />
@@ -1008,7 +1074,7 @@ function ContactInfoForm({
           disabled={disabled}
         />
         <FormField
-          label="State/Department"
+          label="State"
           value={formData.state}
           onChange={(e) => updateFormData('state', e.target.value)}
           placeholder="Department"
@@ -1018,19 +1084,19 @@ function ContactInfoForm({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <FormField
-          label="Landline Phone"
+          label="Landline"
           value={formData.landline_phone}
           onChange={(e) => updateFormData('landline_phone', e.target.value)}
-          placeholder="Official landline number"
+          placeholder="Landline"
           type="tel"
           required
           disabled={disabled}
         />
         <FormField
-          label="Mobile Phone"
+          label="Mobile"
           value={formData.mobile_phone}
           onChange={(e) => updateFormData('mobile_phone', e.target.value)}
-          placeholder="Mobile contact number"
+          placeholder="Mobile"
           type="tel"
           required
           disabled={disabled}
@@ -1040,35 +1106,17 @@ function ContactInfoForm({
         label="Corporate Email"
         value={formData.corporate_email}
         onChange={(e) => updateFormData('corporate_email', e.target.value)}
-        placeholder="Main corporate email"
+        placeholder="email@company.com"
         type="email"
         required
         disabled={disabled}
       />
       <FormField
-        label="Website URL"
+        label="Website"
         value={formData.website_url}
         onChange={(e) => updateFormData('website_url', e.target.value)}
-        placeholder="Company's website URL"
+        placeholder="https://company.com"
         type="url"
-        required
-        disabled={disabled}
-      />
-      <FormField
-        label="Password"
-        value={formData.password}
-        onChange={(e) => updateFormData('password', e.target.value)}
-        placeholder="Create a password (min. 6 characters)"
-        type="password"
-        required
-        disabled={disabled}
-      />
-      <FormField
-        label="Confirm Password"
-        value={formData.confirm_password}
-        onChange={(e) => updateFormData('confirm_password', e.target.value)}
-        placeholder="Confirm your password"
-        type="password"
         required
         disabled={disabled}
       />
@@ -1098,12 +1146,11 @@ function DocumentsForm({
         display: 'flex', 
         flexDirection: 'column', 
         gap: '10px',
-        transformStyle: 'preserve-3d',
       }}
     >
       <FileUploadField
-        label="Chamber of Commerce Certificate"
-        description="Certificate issued within the last 30 days (PDF)"
+        label="Chamber Certificate"
+        description="PDF (last 30 days)"
         file={formData.chamber_of_commerce_certificate}
         onChange={(file) => handleFileChange('chamber_of_commerce_certificate', file)}
         accept=".pdf"
@@ -1112,7 +1159,7 @@ function DocumentsForm({
       />
       <FileUploadField
         label="RUT Document"
-        description="Updated RUT tax document (PDF)"
+        description="Updated RUT (PDF)"
         file={formData.rut_document}
         onChange={(file) => handleFileChange('rut_document', file)}
         accept=".pdf"
@@ -1120,8 +1167,8 @@ function DocumentsForm({
         disabled={disabled}
       />
       <FileUploadField
-        label="Legal Representative ID"
-        description="ID document of the legal representative (PDF/Image)"
+        label="Legal Rep ID"
+        description="ID document (PDF/Image)"
         file={formData.legal_representative_id}
         onChange={(file) => handleFileChange('legal_representative_id', file)}
         accept=".pdf,.jpg,.jpeg,.png"
@@ -1130,7 +1177,7 @@ function DocumentsForm({
       />
       <FileUploadField
         label="Company Logo"
-        description="Company logo for display (Image)"
+        description="Logo (Image)"
         file={formData.company_logo}
         onChange={(file) => handleFileChange('company_logo', file)}
         accept=".jpg,.jpeg,.png,.svg"
@@ -1157,14 +1204,13 @@ function JobPostingForm({
         display: 'flex', 
         flexDirection: 'column', 
         gap: '10px',
-        transformStyle: 'preserve-3d',
       }}
     >
       <FormField
         label="Industry Sector"
         value={formData.industry_sector}
         onChange={(e) => updateFormData('industry_sector', e.target.value)}
-        placeholder="Industry or economic sector"
+        placeholder="Industry"
         required
         disabled={disabled}
       />
@@ -1172,43 +1218,124 @@ function JobPostingForm({
         label="Company Size"
         value={formData.company_size}
         onChange={(e) => updateFormData('company_size', e.target.value)}
-        placeholder="Number of employees or size category"
+        placeholder="Employees"
         required
         disabled={disabled}
       />
       <FormField
-        label="Company Description"
+        label="Description"
         value={formData.company_description}
         onChange={(e) => updateFormData('company_description', e.target.value)}
-        placeholder="Company description for candidates"
+        placeholder="Company description"
         type="textarea"
         required
         disabled={disabled}
       />
       <FormField
-        label="LinkedIn URL"
+        label="LinkedIn"
         value={formData.linkedin_url}
         onChange={(e) => updateFormData('linkedin_url', e.target.value)}
-        placeholder="LinkedIn profile URL"
+        placeholder="LinkedIn URL"
         type="url"
         disabled={disabled}
       />
       <FormField
-        label="Facebook URL"
+        label="Facebook"
         value={formData.facebook_url}
         onChange={(e) => updateFormData('facebook_url', e.target.value)}
-        placeholder="Facebook page URL"
+        placeholder="Facebook URL"
         type="url"
         disabled={disabled}
       />
       <FormField
-        label="Instagram URL"
+        label="Instagram"
         value={formData.instagram_url}
         onChange={(e) => updateFormData('instagram_url', e.target.value)}
-        placeholder="Instagram page URL"
+        placeholder="Instagram URL"
         type="url"
         disabled={disabled}
       />
+    </div>
+  );
+}
+
+// Registration Form - Final Step with Account Creation
+function RegistrationForm({
+  formData,
+  updateFormData,
+  disabled = false,
+}: {
+  formData: EnterpriseFormData;
+  updateFormData: (field: keyof EnterpriseFormData, value: string | File | null) => void;
+  disabled?: boolean;
+}) {
+  const allStepsValid = 
+    formData.legal_name &&
+    formData.trade_name &&
+    formData.corporate_email &&
+    formData.industry_sector &&
+    formData.chamber_of_commerce_certificate;
+
+  return (
+    <div
+      style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '12px',
+      }}
+    >
+      {/* Summary Section */}
+      {allStepsValid && (
+        <div
+          style={{
+            padding: '12px',
+            borderRadius: '12px',
+            background: 'rgba(0, 119, 181, 0.06)',
+            border: '1px solid rgba(0, 119, 181, 0.2)',
+            marginBottom: '8px',
+          }}
+        >
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0077b5', marginBottom: '8px' }}>
+            Registration Summary
+          </p>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            <p style={{ margin: '4px 0' }}><strong>Company:</strong> {formData.trade_name}</p>
+            <p style={{ margin: '4px 0' }}><strong>Email:</strong> {formData.corporate_email}</p>
+            <p style={{ margin: '4px 0' }}><strong>Industry:</strong> {formData.industry_sector}</p>
+          </div>
+        </div>
+      )}
+
+      <FormField
+        label="Password"
+        value={formData.password}
+        onChange={(e) => updateFormData('password', e.target.value)}
+        placeholder="Min. 6 characters"
+        type="password"
+        required
+        disabled={disabled}
+      />
+      <FormField
+        label="Confirm Password"
+        value={formData.confirm_password}
+        onChange={(e) => updateFormData('confirm_password', e.target.value)}
+        placeholder="Confirm password"
+        type="password"
+        required
+        disabled={disabled}
+      />
+      
+      {formData.password && formData.confirm_password && formData.password !== formData.confirm_password && (
+        <p style={{ fontSize: '0.7rem', color: '#ef4444', margin: 0 }}>
+          Passwords do not match
+        </p>
+      )}
+      
+      {formData.password && formData.password.length > 0 && formData.password.length < 6 && (
+        <p style={{ fontSize: '0.7rem', color: '#ef4444', margin: 0 }}>
+          Password must be at least 6 characters
+        </p>
+      )}
     </div>
   );
 }
@@ -1288,19 +1415,19 @@ function FormField({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-      style={{
-        width: '100%',
-        padding: '8px 10px',
-        borderRadius: '10px',
-        border: '1.5px solid #9ca3af',
-        background: disabled ? 'rgba(0, 0, 0, 0.02)' : 'rgba(0, 0, 0, 0.05)',
-        color: 'var(--text-primary)',
-        fontSize: '0.8rem',
-        fontFamily: 'inherit',
-        transition: 'all 0.3s',
-        outline: 'none',
-        cursor: disabled ? 'not-allowed' : 'text',
-      }}
+          style={{
+            width: '100%',
+            padding: '8px 10px',
+            borderRadius: '10px',
+            border: '1.5px solid #9ca3af',
+            background: disabled ? 'rgba(0, 0, 0, 0.02)' : 'rgba(0, 0, 0, 0.05)',
+            color: 'var(--text-primary)',
+            fontSize: '0.8rem',
+            fontFamily: 'inherit',
+            transition: 'all 0.3s',
+            outline: 'none',
+            cursor: disabled ? 'not-allowed' : 'text',
+          }}
           onFocus={(e) => {
             if (!disabled) {
               e.target.style.borderColor = '#0077b5';
@@ -1402,4 +1529,3 @@ function FileUploadField({
     </div>
   );
 }
-

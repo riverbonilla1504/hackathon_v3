@@ -8,7 +8,7 @@ interface FileUploadProps {
   accept?: string;
 }
 
-export default function FileUpload({ file, onFileChange, accept = '.pdf,.doc,.docx' }: FileUploadProps) {
+export default function FileUpload({ file, onFileChange, accept = '.pdf' }: FileUploadProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onFileChange(e.target.files[0]);
@@ -63,7 +63,7 @@ export default function FileUpload({ file, onFileChange, accept = '.pdf,.doc,.do
             {file ? file.name : 'Click to upload your CV'}
           </p>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            PDF, DOC, or DOCX (Max 10MB)
+            PDF only (Max 10MB)
           </p>
         </div>
       </label>

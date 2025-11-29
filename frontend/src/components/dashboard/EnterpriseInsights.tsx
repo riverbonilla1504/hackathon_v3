@@ -75,20 +75,6 @@ export default function EnterpriseInsights({ totalApplicants, averageScore, topS
         </div>
       </div>
 
-      <div style={{
-        padding: '12px',
-        borderRadius: '10px',
-        background: 'rgba(255, 255, 255, 0.5)',
-        border: '1px solid rgba(0, 119, 181, 0.1)',
-      }}>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: '8px' }}>
-          <strong>What stands out:</strong> Top applicants share expertise in{' '}
-          <strong style={{ color: '#0077b5' }}>{topSkills.slice(0, 2).join(' and ')}</strong>.
-        </p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-primary)', lineHeight: 1.5, margin: 0 }}>
-          <strong>Recommendation:</strong> Focus interviews on candidates with match scores above 85%.
-        </p>
-      </div>
     </motion.div>
   );
 }

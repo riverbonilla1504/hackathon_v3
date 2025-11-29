@@ -117,7 +117,7 @@ export default function UserSignup({ onBack, onClose }: UserSignupProps) {
           >
             <input
               type="file"
-              accept=".pdf,.doc,.docx"
+              accept=".pdf"
               onChange={handleFileChange}
               id="cv-upload"
               style={{ display: 'none' }}
@@ -138,7 +138,7 @@ export default function UserSignup({ onBack, onClose }: UserSignupProps) {
                   {cvFile ? cvFile.name : 'Click to upload your CV'}
                 </p>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  PDF, DOC, or DOCX (Max 10MB)
+                  PDF only (Max 10MB)
                 </p>
               </div>
             </label>

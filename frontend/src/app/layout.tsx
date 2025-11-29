@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins, Dancing_Script } from "next/font/google";
 import "./globals.css";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import { TranslationProvider } from "@/contexts/TranslationContext";
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -31,7 +33,11 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} ${dancingScript.variable} ${poppins.className} antialiased`}
       >
-        {children}
+        <TranslationProvider>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </TranslationProvider>
       </body>
     </html>
   );

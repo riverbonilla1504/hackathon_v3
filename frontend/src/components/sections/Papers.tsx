@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Lottie from 'lottie-react';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function Papers() {
+  const { t } = useTranslation();
   const [lottieData, setLottieData] = useState<any>(null);
 
   useEffect(() => {
@@ -229,7 +231,7 @@ export default function Papers() {
                     }}
                     className="block theme-text-primary mb-1.5"
                   >
-                    Intelligent Analysis
+                    {t('papers.intelligentAnalysis')}
                   </span>
                   <span
                     style={{
@@ -241,7 +243,7 @@ export default function Papers() {
                     }}
                     className="block gradient-text"
                   >
-                    At Your Fingertips
+                    {t('papers.atYourFingertips')}
                   </span>
                 </motion.h2>
 
@@ -273,8 +275,7 @@ export default function Papers() {
                     transformStyle: 'preserve-3d',
                   }}
                 >
-                  Our advanced AI technology analyzes resumes with precision, identifying key qualifications, 
-                  skills, and experience to match the perfect candidate with your job requirements.
+                  {t('papers.subtitle')}
                 </motion.p>
 
                 <motion.p
@@ -305,9 +306,7 @@ export default function Papers() {
                     transformStyle: 'preserve-3d',
                   }}
                 >
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Worky AI</span> uses 
-                  cutting-edge machine learning algorithms to extract and evaluate candidate information, 
-                  ensuring you never miss the ideal match for your team.
+                  {t('papers.mlDescription')}
                 </motion.p>
               </div>
             </motion.div>

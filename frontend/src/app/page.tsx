@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NotebookGrid from '@/components/background/NotebookGrid';
 import TypewriterText from '@/components/animations/TypewriterText';
@@ -13,125 +13,117 @@ import LoginButton from '@/components/layout/LoginButton';
 export default function Home() {
   const [showSubtitle, setShowSubtitle] = useState(false);
   const [typingComplete, setTypingComplete] = useState(false);
-  const [titleMinimized, setTitleMinimized] = useState(false);
+  const startSectionRef = useRef<HTMLElement>(null);
+
+  const scrollToStart = () => {
+    if (startSectionRef.current) {
+      startSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
+  };
 
   useEffect(() => {
     if (typingComplete) {
-      // Wait 5 seconds after typing completes
+      // Wait 2 seconds after typing completes, then auto-scroll
       setTimeout(() => {
-        // Minimize title
-        setTitleMinimized(true);
-      }, 5000);
+        scrollToStart();
+      }, 2000);
     }
   }, [typingComplete]);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen overflow-x-hidden">
       <NotebookGrid />
       
-      {/* Hero Section - centered initially, then animates up and fades out */}
-      <AnimatePresence mode="wait">
-        {!titleMinimized && (
-          <motion.div
-            key="centered-title"
-            initial={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ 
-              opacity: 0, 
-              scale: 0.8, 
-              y: -100,
-              transition: { 
-                duration: 1.2, 
-                ease: [0.25, 0.46, 0.45, 0.94] 
-              }
-            }}
-            className="relative z-10 flex items-center justify-center h-screen"
-          >
-            <div className="text-center px-4 sm:px-6 lg:px-8">
-              <div className="max-w-4xl mx-auto">
-                {/* Main Title with 3D Effect */}
-                <h1 
-                  className="text-7xl sm:text-8xl md:text-9xl lg:text-[12rem] font-bold mb-6 leading-none text-3d"
-                  style={{ fontFamily: 'var(--font-cursive), cursive' }}
-                >
-                  <span className="block theme-text-primary mb-2">
-                    <TypewriterText 
-                      text="Worky" 
-                      speed={150}
-                      onComplete={() => {
-                        setTimeout(() => setShowSubtitle(true), 300);
-                      }}
-                    />
-                  </span>
-                  <span 
-                    className="block gradient-text text-3d-gradient"
-                    style={{
-                      background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    {showSubtitle && (
-                      <TypewriterText 
-                        text="AI" 
-                        speed={200}
-                        onComplete={() => setTypingComplete(true)}
-                      />
-                    )}
-                  </span>
-                </h1>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Minimized Title - appears in top-left corner */}
-      <AnimatePresence>
-        {titleMinimized && (
-          <motion.div
-            key="minimized-title"
-            initial={{ 
-              opacity: 0, 
-              scale: 0.8,
-              x: -50,
-              y: -50
-            }}
-            animate={{ 
-              opacity: 1, 
-              scale: 1,
-              x: 0,
-              y: 0
-            }}
-            transition={{ 
-              duration: 0.8, 
-              delay: 0.3,
-              ease: [0.16, 1, 0.3, 1]
-            }}
+      {/* Minimized Title - always visible in top-left corner */}
+      <motion.div
+        initial={{ 
+          opacity: 0, 
+          scale: 0.8,
+          x: -50,
+          y: -50
+        }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1,
+          x: 0,
+          y: 0
+        }}
+        transition={{ 
+          duration: 0.8, 
+          delay: 0.3,
+          ease: [0.16, 1, 0.3, 1]
+        }}
+        style={{
+          position: 'fixed',
+          top: 'clamp(20px, 3vw, 32px)',
+          left: 'clamp(20px, 3vw, 32px)',
+          zIndex: 50,
+          padding: 'clamp(12px, 2vw, 20px) clamp(16px, 3vw, 32px)',
+          pointerEvents: 'auto',
+          cursor: 'pointer',
+        }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        <h1 
+          className="text-3xl sm:text-4xl md:text-5xl font-bold leading-none"
+          style={{ fontFamily: 'var(--font-cursive), cursive' }}
+        >
+          <span className="block theme-text-primary mb-1">
+            Worky
+          </span>
+          <span 
+            className="block gradient-text"
             style={{
-              position: 'fixed',
-              top: 'clamp(20px, 3vw, 32px)',
-              left: 'clamp(20px, 3vw, 32px)',
-              zIndex: 50,
-              padding: 'clamp(12px, 2vw, 20px) clamp(16px, 3vw, 32px)',
-              pointerEvents: 'auto',
-              cursor: 'pointer',
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
-            <h1 
-              className="text-3xl sm:text-4xl md:text-5xl font-bold leading-none"
+            AI
+          </span>
+        </h1>
+      </motion.div>
+
+      {/* Login Button - top right (fixed) */}
+      <LoginButton />
+
+      {/* Hero Section - centered title */}
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 flex items-center justify-center h-screen"
+      >
+        <div className="text-center px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            {/* Main Title with 3D Effect */}
+            <motion.h1 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-7xl sm:text-8xl md:text-9xl lg:text-[12rem] font-bold mb-6 leading-none text-3d"
               style={{ fontFamily: 'var(--font-cursive), cursive' }}
             >
-              <span className="block theme-text-primary mb-1">
-                Worky
+              <span className="block theme-text-primary mb-2">
+                <TypewriterText 
+                  text="Worky" 
+                  speed={150}
+                  onComplete={() => {
+                    setTimeout(() => setShowSubtitle(true), 300);
+                  }}
+                />
               </span>
               <span 
-                className="block gradient-text"
+                className="block gradient-text text-3d-gradient"
                 style={{
                   background: 'linear-gradient(to right, #0077b5, #00a0dc, #0077b5)',
                   WebkitBackgroundClip: 'text',
@@ -139,25 +131,62 @@ export default function Home() {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                AI
+                {showSubtitle && (
+                  <TypewriterText 
+                    text="AI" 
+                    speed={200}
+                    onComplete={() => setTypingComplete(true)}
+                  />
+                )}
               </span>
-            </h1>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.h1>
+            
+            {/* Scroll indicator */}
+            {typingComplete && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                className="mt-12"
+              >
+                <motion.div
+                  animate={{ y: [0, 10, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#0077b5',
+                    cursor: 'pointer',
+                  }}
+                  onClick={scrollToStart}
+                >
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Scroll to explore</span>
+                  <motion.svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+                  </motion.svg>
+                </motion.div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </motion.section>
 
-      {/* Login Button - top right (fixed) */}
-      {titleMinimized && <LoginButton />}
-
-      {/* Start Section - appears after title disappears */}
-      {titleMinimized && (
-        <>
-          <Start />
-          <Papers />
-          <Features />
-          <Footer />
-        </>
-      )}
+      {/* Content Sections - always visible */}
+      <Start ref={startSectionRef} />
+      <Papers />
+      <Features />
+      <Footer />
     </div>
   );
 }

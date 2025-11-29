@@ -42,7 +42,7 @@ export default function AIChatSidebar({ offer, applicants, isOpen, onClose }: AI
     // Simple rule-based responses (in production, this would call an AI API)
     if (lowerMessage.includes('top candidate') || lowerMessage.includes('best candidate')) {
       const topCandidate = applicants.sort((a, b) => b.match_score - a.match_score)[0];
-      return `The top candidate is ${topCandidate.name} with a ${topCandidate.match_score}% match score. They have ${topCandidate.experience_years} years of experience and expertise in ${topCandidate.skills.slice(0, 3).join(', ')}. Their education background includes ${topCandidate.education}.`;
+      return `The top candidate has a ${topCandidate.match_score}% match score. They have ${topCandidate.experience_years} years of experience and expertise in ${topCandidate.skills.slice(0, 3).join(', ')}. Their education background includes ${topCandidate.education}.`;
     }
     
     if (lowerMessage.includes('how many') || lowerMessage.includes('total applicants')) {
@@ -73,7 +73,7 @@ export default function AIChatSidebar({ offer, applicants, isOpen, onClose }: AI
     if (lowerMessage.includes('compare') || lowerMessage.includes('difference')) {
       const topTwo = applicants.sort((a, b) => b.match_score - a.match_score).slice(0, 2);
       if (topTwo.length >= 2) {
-        return `Comparing the top two candidates:\n\n${topTwo[0].name} (${topTwo[0].match_score}% match): ${topTwo[0].experience_years} years experience, strong in ${topTwo[0].skills.slice(0, 3).join(', ')}.\n\n${topTwo[1].name} (${topTwo[1].match_score}% match): ${topTwo[1].experience_years} years experience, strong in ${topTwo[1].skills.slice(0, 3).join(', ')}.\n\nBoth are excellent candidates, but ${topTwo[0].name} has a slightly higher match score.`;
+        return `Comparing the top two candidates:\n\nCandidate 1 (${topTwo[0].match_score}% match): ${topTwo[0].experience_years} years experience, strong in ${topTwo[0].skills.slice(0, 3).join(', ')}.\n\nCandidate 2 (${topTwo[1].match_score}% match): ${topTwo[1].experience_years} years experience, strong in ${topTwo[1].skills.slice(0, 3).join(', ')}.\n\nBoth are excellent candidates, but Candidate 1 has a slightly higher match score.`;
       }
     }
     

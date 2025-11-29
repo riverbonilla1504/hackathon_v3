@@ -6,11 +6,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Lottie from 'lottie-react';
 import NotebookGrid from '@/components/background/NotebookGrid';
+import LanguageToggle from '@/components/layout/LanguageToggle';
 import { ArrowLeft, LogIn, ShieldCheck, Sparkles, BadgeCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { fetchEnterpriseDataFromSupabase } from '@/lib/storage';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function LoginFormPage() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const { showError, showSuccess } = useNotifications();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,13 +42,24 @@ export default function LoginFormPage() {
       password,
     });
 
-    setIsLoading(false);
-
     if (error || !data.session) {
-      alert('Invalid email or password');
+      setIsLoading(false);
+      showError(t('login.invalidCredentials'));
       return;
     }
 
+    // Fetch enterprise data from Supabase and save to local storage
+    try {
+      const enterpriseData = await fetchEnterpriseDataFromSupabase(email);
+      if (!enterpriseData) {
+        console.warn('Could not fetch enterprise data, but login was successful');
+      }
+    } catch (err) {
+      console.error('Error fetching enterprise data:', err);
+    }
+
+    setIsLoading(false);
+    showSuccess(t('login.success'));
     router.push('/dashboard');
   };
 
@@ -219,7 +236,7 @@ export default function LoginFormPage() {
                 </div>
                 <div>
                   <p style={{ fontSize: '0.8rem', letterSpacing: '0.1em', color: '#0077b5' }}>
-                    ENTERPRISE LOGIN
+                    {t('login.enterpriseLogin')}
                   </p>
                   <h2
                     style={{
@@ -253,21 +270,20 @@ export default function LoginFormPage() {
                   maxWidth: '440px',
                 }}
               >
-                Log into your enterprise cockpit and continue where you left off with offers,
-                applicants and AI recommendations.
+                {t('login.logIntoCockpit')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                 {[
                   {
                     icon: <ShieldCheck size={18} color="#0077b5" />,
-                    title: 'Supabase session',
-                    text: 'Your login is managed securely with Supabase Auth.',
+                    title: t('login.supabaseSession'),
+                    text: t('login.loginManaged'),
                   },
                   {
                     icon: <Sparkles size={18} color="#00a0dc" />,
-                    title: 'Smart context',
-                    text: 'We remember your enterprise data to personalize insights.',
+                    title: t('login.smartContext'),
+                    text: t('login.rememberData'),
                   },
                 ].map(item => (
                   <div
@@ -374,7 +390,7 @@ export default function LoginFormPage() {
                 </span>
               </h3>
               <p style={{ color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.6 }}>
-                Use your registered email and password to enter the dashboard.
+                {t('login.useRegisteredEmail')}
               </p>
             </div>
 
@@ -392,13 +408,13 @@ export default function LoginFormPage() {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  Email
+                  {t('login.email')}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com"
+                  placeholder={t('login.email')}
                   required
                   style={{
                     width: '100%',
@@ -435,13 +451,13 @@ export default function LoginFormPage() {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  Password
+                  {t('login.password')}
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('login.password')}
                   required
                   style={{
                     width: '100%',
@@ -487,7 +503,7 @@ export default function LoginFormPage() {
                   transition: 'all 0.3s',
                 }}
               >
-                {isLoading ? 'Logging in...' : 'Log In'}
+                {isLoading ? t('common.loading') : t('login.signIn')}
               </motion.button>
             </form>
 
@@ -504,11 +520,14 @@ export default function LoginFormPage() {
               }}
             >
               <BadgeCheck size={16} color="#0077b5" />
-              <span>Only registered enterprises can access this dashboard.</span>
+              <span>{t('login.enterpriseOnly')}</span>
             </div>
           </motion.aside>
         </motion.div>
       </motion.section>
+
+      {/* Language Toggle */}
+      <LanguageToggle />
     </div>
   );
 }

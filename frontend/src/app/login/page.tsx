@@ -6,11 +6,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Lottie from 'lottie-react';
 import NotebookGrid from '@/components/background/NotebookGrid';
-import { LogIn, UserPlus, ArrowLeft, ShieldCheck, Sparkles, BadgeCheck } from 'lucide-react';
+import LanguageToggle from '@/components/layout/LanguageToggle';
+import { LogIn, UserPlus, ArrowLeft, ShieldCheck, Sparkles, BadgeCheck, Mail, Phone, MessageCircle, MapPin, Globe, ChevronDown } from 'lucide-react';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [heroLottieData, setHeroLottieData] = useState<any>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   useEffect(() => {
     fetch('/loginindw.json')
@@ -39,27 +43,11 @@ export default function LoginPage() {
         }}
       >
         <Link href="/" passHref>
-          <motion.button
+          <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: 'clamp(12px, 2vw, 20px) clamp(16px, 3vw, 32px)',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
               cursor: 'pointer',
-              transition: 'all 0.3s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
             }}
           >
             <h1
@@ -79,7 +67,7 @@ export default function LoginPage() {
                 AI
               </span>
             </h1>
-          </motion.button>
+          </motion.div>
         </Link>
       </motion.div>
 
@@ -152,7 +140,7 @@ export default function LoginPage() {
                   <LogIn size={24} color="#0077b5" />
                 </div>
                 <div>
-                  <p style={{ fontSize: '0.8rem', letterSpacing: '0.1em', color: '#0077b5' }}>ENTER THE PLATFORM</p>
+                  <p style={{ fontSize: '0.8rem', letterSpacing: '0.1em', color: '#0077b5' }}>{t('login.enterPlatform')}</p>
                   <h2
                     style={{
                       fontSize: 'clamp(1.8rem, 4vw, 2.6rem)',
@@ -161,7 +149,7 @@ export default function LoginPage() {
                       color: 'var(--text-primary)',
                     }}
                   >
-                    Worky AI Access
+                    {t('login.workyAiAccess')}
                   </h2>
                 </div>
               </div>
@@ -174,25 +162,25 @@ export default function LoginPage() {
                   maxWidth: '440px',
                 }}
               >
-                Manage your enterprise offers, collaborate with AI assistants, and keep every candidate journey in one secure workspace.
+                {t('login.workyAiAccessDesc')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                 {[
                   {
                     icon: <ShieldCheck size={18} color="#0077b5" />,
-                    title: 'Secure enterprise login',
-                    text: 'Powered by Supabase Auth with encrypted sessions.',
+                    title: t('login.secureEnterpriseLogin'),
+                    text: t('login.supabaseAuth'),
                   },
                   {
                     icon: <Sparkles size={18} color="#00a0dc" />,
-                    title: 'AI copilots included',
-                    text: 'Ask Worky AI to summarize candidates or offers in seconds.',
+                    title: t('login.aiCopilotsIncluded'),
+                    text: t('login.aiSummarize'),
                   },
                   {
                     icon: <BadgeCheck size={18} color="#005885" />,
-                    title: 'Compliance ready',
-                    text: 'Glass-like UI meets enterprise grade audit trails.',
+                    title: t('login.complianceReady'),
+                    text: t('login.auditTrails'),
                   },
                 ].map(item => (
                   <div
@@ -269,7 +257,7 @@ export default function LoginPage() {
             }}
           >
             <div>
-              <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', color: '#0077b5', marginBottom: 8 }}>ENTERPRISE ACCESS</p>
+              <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', color: '#0077b5', marginBottom: 8 }}>{t('login.enterpriseAccess')}</p>
               <h3
                 style={{
                   fontSize: 'clamp(2rem, 4vw, 2.6rem)',
@@ -278,10 +266,10 @@ export default function LoginPage() {
                   color: 'var(--text-primary)',
                 }}
               >
-                Control Center
+                {t('login.controlCenter')}
               </h3>
               <p style={{ color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.6 }}>
-                Choose how you want to enter Worky AI. Your session syncs with Supabase automatically.
+                {t('login.chooseEntry')}
               </p>
             </div>
 
@@ -317,8 +305,8 @@ export default function LoginPage() {
                     <LogIn size={22} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <p style={{ fontWeight: 600, marginBottom: 4 }}>Log in to dashboard</p>
-                    <span style={{ fontSize: '0.9rem', opacity: 0.9 }}>Continue managing offers, applicants and AI insights.</span>
+                    <p style={{ fontWeight: 600, marginBottom: 4 }}>{t('login.signIn')}</p>
+                    <span style={{ fontSize: '0.9rem', opacity: 0.9 }}>{t('login.continueManaging')}</span>
                   </div>
                 </div>
                 <ArrowLeft style={{ transform: 'rotate(180deg)' }} />
@@ -355,9 +343,9 @@ export default function LoginPage() {
                     <UserPlus size={22} color="#0077b5" />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <p style={{ fontWeight: 600, marginBottom: 4 }}>Create enterprise account</p>
+                    <p style={{ fontWeight: 600, marginBottom: 4 }}>{t('login.createAccount')}</p>
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                      Configure company data and unlock the cascade registration.
+                      {t('login.configureCompany')}
                     </span>
                   </div>
                 </div>
@@ -368,35 +356,234 @@ export default function LoginPage() {
             <div
               style={{
                 marginTop: 'auto',
-                padding: '20px',
-                borderRadius: '20px',
-                border: '1px dashed rgba(0,119,181,0.2)',
-                background: 'rgba(0,119,181,0.04)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
               }}
             >
-              <p style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Need personalized onboarding?</p>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
-                Reach out to our enterprise team and we will pre-configure your workspace.
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <div
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(0,119,181,0.2)',
-                  background: 'white',
-                  color: '#0077b5',
-                  fontWeight: 600,
-                  cursor: 'pointer',
+                  padding: '20px',
+                  borderRadius: '20px',
+                  border: '1px dashed rgba(0,119,181,0.2)',
+                  background: 'rgba(0,119,181,0.04)',
                 }}
               >
-                Talk to us
-              </motion.button>
+                <p style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>{t('login.needOnboarding')}</p>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  {t('login.reachOut')}
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowContactModal(!showContactModal)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px 20px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(0,119,181,0.2)',
+                    background: 'white',
+                    color: '#0077b5',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    width: '100%',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(0, 119, 181, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(0, 119, 181, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = 'rgba(0,119,181,0.2)';
+                  }}
+                >
+                  {t('login.talkToUs')}
+                  <motion.div
+                    animate={{ rotate: showContactModal ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ChevronDown size={18} />
+                  </motion.div>
+                </motion.button>
+              </div>
+
+              {/* Expandable Contact Card */}
+              <motion.div
+                initial={false}
+                animate={{
+                  height: showContactModal ? 'auto' : 0,
+                  opacity: showContactModal ? 1 : 0,
+                }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.6, 1] }}
+                style={{
+                  overflow: 'hidden',
+                  borderRadius: '20px',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  border: '1.5px solid rgba(0, 119, 181, 0.15)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                }}
+              >
+                <div style={{ padding: '20px' }}>
+                  <h3
+                    style={{
+                      fontSize: '1.125rem',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      margin: '0 0 12px 0',
+                      fontFamily: 'var(--font-poppins), sans-serif',
+                    }}
+                  >
+                    {t('contact.title')}
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: '0.875rem',
+                      color: 'var(--text-secondary)',
+                      marginBottom: '20px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {t('contact.getInTouch')}
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      {
+                        icon: <Mail size={18} />,
+                        label: 'Email',
+                        value: 'contact@workyai.com',
+                        action: () => window.open('mailto:contact@workyai.com?subject=Enterprise Inquiry', '_blank'),
+                      },
+                      {
+                        icon: <Phone size={18} />,
+                        label: 'Phone',
+                        value: '+1 (555) 123-4567',
+                        action: () => window.open('tel:+15551234567', '_blank'),
+                      },
+                      {
+                        icon: <MessageCircle size={18} />,
+                        label: 'WhatsApp',
+                        value: '+1 (555) 123-4567',
+                        action: () => window.open('https://wa.me/15551234567?text=Hello%20Worky%20AI%20Team', '_blank'),
+                      },
+                      {
+                        icon: <MapPin size={18} />,
+                        label: 'Address',
+                        value: '123 Innovation Drive, Tech City',
+                        action: () => window.open('https://maps.google.com/?q=123+Innovation+Drive+Tech+City', '_blank'),
+                      },
+                      {
+                        icon: <Globe size={18} />,
+                        label: 'Website',
+                        value: 'www.workyai.com',
+                        action: () => window.open('https://www.workyai.com', '_blank'),
+                      },
+                    ].map((method, index) => (
+                      <motion.button
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: showContactModal ? 1 : 0, x: 0 }}
+                        transition={{ delay: index * 0.05, duration: 0.3 }}
+                        whileHover={{ scale: 1.01, x: 4 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={method.action}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '12px 16px',
+                          borderRadius: '12px',
+                          background: 'rgba(255, 255, 255, 0.8)',
+                          border: '1px solid rgba(0, 119, 181, 0.1)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(0, 119, 181, 0.05)';
+                          e.currentTarget.style.borderColor = 'rgba(0, 119, 181, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)';
+                          e.currentTarget.style.borderColor = 'rgba(0, 119, 181, 0.1)';
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #0077b5 0%, #00a0dc 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {method.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              color: 'var(--text-secondary)',
+                              marginBottom: '2px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            {method.label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              color: 'var(--text-primary)',
+                            }}
+                          >
+                            {method.value}
+                          </div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      background: 'rgba(0, 119, 181, 0.05)',
+                      border: '1px solid rgba(0, 119, 181, 0.1)',
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <strong style={{ color: '#0077b5' }}>{t('contact.businessHours').split(':')[0]}:</strong> {t('contact.businessHours').split(':')[1]?.trim()}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </motion.aside>
         </motion.div>
       </motion.section>
+
+      {/* Language Toggle */}
+      <LanguageToggle />
     </div>
   );
 }
