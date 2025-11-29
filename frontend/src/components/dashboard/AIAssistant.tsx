@@ -52,6 +52,13 @@ export default function AIAssistant({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
+  const loadingStages = [
+    'Pensando...',
+    'Consultando datos...',
+    'Analizando información...',
+    'Preparando respuesta...',
+  ];
   const [animationData, setAnimationData] = useState<any>(null);
   const [showContinue, setShowContinue] = useState(false);
   const [waitingForContinue, setWaitingForContinue] = useState(false);
@@ -61,6 +68,7 @@ export default function AIAssistant({
   const [botTarget, setBotTarget] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const stageIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [allApplicants, setAllApplicants] = useState<Applicant[]>([]);
 
   useEffect(() => {
@@ -443,12 +451,23 @@ export default function AIAssistant({
       timestamp: new Date(),
     };
 
-    const userInput = input.trim();
+      const userInput = input.trim();
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setLoadingStage(0);
     setShowContinue(false);
     setWaitingForContinue(false);
+    
+    // Clear any existing interval
+    if (stageIntervalRef.current) {
+      clearInterval(stageIntervalRef.current);
+    }
+    
+    // Rotate through loading stages to show activity
+    stageIntervalRef.current = setInterval(() => {
+      setLoadingStage((prev) => (prev + 1) % loadingStages.length);
+    }, 2000);
 
     try {
       // Check if user wants to create a work offer
@@ -546,6 +565,11 @@ export default function AIAssistant({
           setMessages(prev => [...prev, questionMessage]);
         }
         setIsLoading(false);
+        setLoadingStage(0);
+        if (stageIntervalRef.current) {
+          clearInterval(stageIntervalRef.current);
+          stageIntervalRef.current = null;
+        }
         setWaitingForContinue(true);
         return;
       }
@@ -645,6 +669,11 @@ export default function AIAssistant({
       setWaitingForContinue(true);
     } finally {
       setIsLoading(false);
+      setLoadingStage(0);
+      if (stageIntervalRef.current) {
+        clearInterval(stageIntervalRef.current);
+        stageIntervalRef.current = null;
+      }
     }
   };
 
@@ -1000,38 +1029,137 @@ export default function AIAssistant({
 
                 {isLoading && (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '12px 16px',
+                      gap: '12px',
+                      padding: '16px 20px',
                       borderRadius: '16px',
-                      background: 'rgba(0, 119, 181, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(0, 119, 181, 0.1) 0%, rgba(0, 160, 220, 0.08) 100%)',
+                      border: '1.5px solid rgba(0, 119, 181, 0.2)',
                       maxWidth: '80%',
+                      boxShadow: '0 4px 12px rgba(0, 119, 181, 0.1)',
                     }}
                   >
+                    {/* Animated Brain/AI Icon */}
                     <motion.div
-                      animate={{
-                        opacity: [1, 0.5, 1],
-                        scale: [1, 1.2, 1],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
                       style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: '#0077b5',
+                        position: 'relative',
+                        width: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                    />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      Thinking...
-                    </span>
+                    >
+                      {/* Pulsing circles */}
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.5, 1],
+                          opacity: [0.3, 0, 0.3],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeOut',
+                        }}
+                        style={{
+                          position: 'absolute',
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: '#0077b5',
+                        }}
+                      />
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.3, 1],
+                          opacity: [0.5, 0, 0.5],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeOut',
+                          delay: 0.5,
+                        }}
+                        style={{
+                          position: 'absolute',
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: '#00a0dc',
+                        }}
+                      />
+                      {/* Center dot */}
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #0077b5 0%, #00a0dc 100%)',
+                          boxShadow: '0 0 12px rgba(0, 119, 181, 0.5)',
+                          zIndex: 1,
+                        }}
+                      />
+                    </motion.div>
+
+                    {/* Loading text with dots */}
+                    <div style={{ flex: 1 }}>
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={loadingStage}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.3 }}
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          color: '#0077b5',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        {loadingStages[loadingStage]}
+                      </motion.div>
+                      </AnimatePresence>
+                      <div style={{
+                        display: 'flex',
+                        gap: '4px',
+                        alignItems: 'center',
+                      }}>
+                        {[0, 1, 2].map((i) => (
+                          <motion.div
+                            key={i}
+                            animate={{
+                              scale: [1, 1.3, 1],
+                              opacity: [0.5, 1, 0.5],
+                            }}
+                            transition={{
+                              duration: 1.2,
+                              repeat: Infinity,
+                              ease: 'easeInOut',
+                              delay: i * 0.2,
+                            }}
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: '#0077b5',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
 

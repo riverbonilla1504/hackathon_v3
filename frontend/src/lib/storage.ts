@@ -479,6 +479,52 @@ export const getAllApplicantsFromSupabase = async (vacantIds?: number[]): Promis
   }
 };
 
+// Get ranking for a vacant position from the ranking API
+export const getRankingForVacant = async (vacant_id: number, limit: number = 100): Promise<Map<number, number>> => {
+  try {
+    const response = await fetch('https://hackathon-v3.onrender.com/api/ranking/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        vacant_id,
+        limit,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Error fetching ranking from API:', response.statusText);
+      return new Map();
+    }
+
+    const data = await response.json();
+    
+    if (!data.matches || !Array.isArray(data.matches)) {
+      console.error('Invalid ranking API response:', data);
+      return new Map();
+    }
+
+    // Create a map of profile_id -> score
+    const rankingMap = new Map<number, number>();
+    data.matches.forEach((match: { id: string; score: number }) => {
+      const profileId = parseInt(match.id, 10);
+      if (!isNaN(profileId)) {
+        // Convert score to percentage (0-100)
+        // The API returns scores like 4.67 (scale 0-5), so we normalize to 0-100
+        // Score of 5 = 100%, Score of 0 = 0%
+        const normalizedScore = Math.min(100, Math.max(0, (match.score / 5) * 100));
+        rankingMap.set(profileId, parseFloat(normalizedScore.toFixed(1))); // Keep one decimal for precision
+      }
+    });
+
+    return rankingMap;
+  } catch (error) {
+    console.error('Error calling ranking API:', error);
+    return new Map();
+  }
+};
+
 export const getApplicantsByVacantId = async (vacant_id: number): Promise<Applicant[]> => {
   try {
     // Fetch from Supabase profile table - strictly filter by vacant_id
@@ -512,15 +558,22 @@ export const getApplicantsByVacantId = async (vacant_id: number): Promise<Applic
       }).filter(Boolean);
     };
 
+    // Get ranking scores for this vacant position
+    const rankingMap = await getRankingForVacant(vacant_id, profiles.length);
+    
     // Transform Supabase profile data to Applicant format
     // Filter out any profiles without CV URL (additional safety check)
-    return profiles
+    const applicants = profiles
       .filter((profile: any) => profile.cv_url != null && profile.cv_url !== '')
       .map((profile: any) => {
         const personalInfo = profile.personal_information || {};
         const experience = profile.experience || {};
         const education = profile.education || {};
         const skills = profile.skills || [];
+
+        // Get ranking score if available, otherwise use default
+        const rankingScore = rankingMap.get(profile.id);
+        const matchScore = rankingScore !== undefined ? rankingScore : 75;
 
         return {
           id: profile.id,
@@ -531,7 +584,7 @@ export const getApplicantsByVacantId = async (vacant_id: number): Promise<Applic
           experience_years: experience.years || 0,
           skills: normalizeSkillsToStrings(skills),
           education: education.degree || education.institution || '',
-          match_score: 75, // Default, can be calculated based on job requirements
+          match_score: matchScore,
           applied_at: profile.created_at || new Date().toISOString(),
           status: profile.status || 'pending',
           cv_url: profile.cv_url || null,
@@ -539,6 +592,9 @@ export const getApplicantsByVacantId = async (vacant_id: number): Promise<Applic
           // Note: cv_path is not in the schema, only cv_url exists
         };
       });
+
+    // Sort by match score (highest first)
+    return applicants.sort((a, b) => b.match_score - a.match_score);
   } catch (error) {
     console.error('Error in getApplicantsByVacantId:', error);
     // Return empty array to avoid showing wrong/old data from local storage

@@ -24,14 +24,23 @@ export default function ApplicantsTable({ applicants, vacantId, onStatusUpdate }
   const [isUpdating, setIsUpdating] = useState(false);
 
   const filteredApplicants = useMemo(() => {
-    return applicants.filter(applicant => {
+    // Filter applicants while maintaining the ranking order
+    const filtered = applicants.filter(applicant => {
       const matchesSearch = 
-        applicant.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+        applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        applicant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        applicant.skills.some(skill => {
+          const skillName = typeof skill === 'string' ? skill : (skill?.name || String(skill));
+          return skillName.toLowerCase().includes(searchQuery.toLowerCase());
+        });
       
       const matchesStatus = statusFilter === 'all' || applicant.status === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
+    
+    // Sort by match score (highest first) to maintain ranking order
+    return filtered.sort((a, b) => b.match_score - a.match_score);
   }, [applicants, searchQuery, statusFilter]);
 
   const formatDate = (dateString: string) => {
@@ -153,7 +162,7 @@ export default function ApplicantsTable({ applicants, vacantId, onStatusUpdate }
                   Skills
                 </th>
                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Match Score
+                  Ranking & Score
                 </th>
                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                   Status
@@ -232,23 +241,56 @@ export default function ApplicantsTable({ applicants, vacantId, onStatusUpdate }
                         </div>
                       </td>
                       <td style={{ padding: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* Rank Position */}
                           <div style={{
-                            width: '60px',
-                            height: '8px',
-                            borderRadius: '4px',
-                            background: 'rgba(0, 119, 181, 0.1)',
-                            overflow: 'hidden',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: index < 3 
+                              ? index === 0 
+                                ? 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)'
+                                : index === 1
+                                ? 'linear-gradient(135deg, #C0C0C0 0%, #A0A0A0 100%)'
+                                : 'linear-gradient(135deg, #CD7F32 0%, #B87333 100%)'
+                              : 'rgba(0, 119, 181, 0.1)',
+                            color: index < 3 ? 'white' : '#0077b5',
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
                           }}>
-                            <div style={{
-                              width: `${applicant.match_score}%`,
-                              height: '100%',
-                              background: 'linear-gradient(90deg, #0077b5 0%, #00a0dc 100%)',
-                            }} />
+                            #{index + 1}
                           </div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0077b5', minWidth: '40px' }}>
-                            {applicant.match_score}%
-                          </span>
+                          {/* Match Score */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                              width: '60px',
+                              height: '8px',
+                              borderRadius: '4px',
+                              background: 'rgba(0, 119, 181, 0.1)',
+                              overflow: 'hidden',
+                            }}>
+                              <div style={{
+                                width: `${applicant.match_score}%`,
+                                height: '100%',
+                                background: applicant.match_score >= 80
+                                  ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
+                                  : applicant.match_score >= 60
+                                  ? 'linear-gradient(90deg, #0077b5 0%, #00a0dc 100%)'
+                                  : 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+                              }} />
+                            </div>
+                            <span style={{ 
+                              fontSize: '0.875rem', 
+                              fontWeight: 700, 
+                              color: applicant.match_score >= 80 ? '#22c55e' : applicant.match_score >= 60 ? '#0077b5' : '#f59e0b',
+                              minWidth: '45px' 
+                            }}>
+                              {applicant.match_score.toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td style={{ padding: '16px' }}>
