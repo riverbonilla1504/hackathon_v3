@@ -1,0 +1,411 @@
+{
+  "name": "Job Application Workflow via WhatsApp (Nov 29 at 11:38:50)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// En n8n, lo que envías al webhook suele venir en json.body\n// Si no existe body, usamos json directo (para que también funcione en tests)\nconst raw = items[0]?.json;\n\nif (!raw) {\n  throw new Error(\"Data is missing or incorrectly formatted.\");\n}\n\n// Si tu Webhook recibe JSON así:\n// { \"vacant_id\": 123, \"file_name\": \"...\", ... } ⇒ raw ES la data\n// Si lo recibe como { body: {...} } ⇒ raw.body ES la data\nconst data = raw.body ?? raw;\n\n// Verifica si los campos obligatorios están presentes\nconst missingFields = [];\nif (!data.vacant_id) missingFields.push('vacant_id');\nif (!data.file_name) missingFields.push('file_name');\nif (!data.file_mime) missingFields.push('file_mime');\nif (!data.file_base64) missingFields.push('file_base64');\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n}\n\nconst timestamp = new Date().toISOString().replace(/[:.]/g, \"-\");\nconst random = Math.random().toString(36).substring(2, 8);\nconst storagePath = `vacant_${data.vacant_id}/cv_${timestamp}_${random}_${data.file_name}`;\n\nreturn [\n  {\n    json: {\n      vacant_id: data.vacant_id,\n      file_name: data.file_name,\n      file_mime: data.file_mime,\n      file_base64: data.file_base64,\n      source: data.source || \"unknown\",\n      storagePath,\n      cv_url: `https://hpzohppfcibdpfazptmd.supabase.co/storage/v1/object/public/cvs/${storagePath}`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        1344
+      ],
+      "id": "272ed4e1-7611-420f-b293-dbc25e48c634",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2432,
+        1344
+      ],
+      "id": "ac8e910c-5b01-4979-b705-4d3335d750f3",
+      "name": "Webhook",
+      "webhookId": "662320c9-6d8b-4aab-bd80-5b62129d7f17"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1515c540-cea2-4b49-8abd-a8e8a48ab414",
+              "leftValue": "={{ $json[\"file_name\"] }}",
+              "rightValue": "=.pdf",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        1344
+      ],
+      "id": "7e29fa9e-0cf4-4585-97a7-5aed79bfd011",
+      "name": "Is CV?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "profile",
+        "limit": 12,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "vacant_id",
+              "condition": "eq",
+              "keyValue": "={{ $node[\"Normalize Input\"].json.vacant_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        1216
+      ],
+      "id": "f7d1b670-cdd3-4a54-931b-3d5f6174a4cd",
+      "name": "Get a row",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "K4vhQ15VdOrclHvz",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalize = $node['Normalize Input'].json;\nconst fileBase64 = normalize.file_base64;\nconst fileMime = normalize.file_mime;\nconst fileName = normalize.file_name;\n\nconst items = $input.all();\n\nif (items.length === 0) {\n  items.push({ json: {} });\n}\n\nfor (const item of items) {\n  item.binary = item.binary || {};\n  item.binary.data = {\n    data: Buffer.from(fileBase64, 'base64'),\n    mimeType: fileMime,\n    fileName: fileName\n  };\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3264,
+        1344
+      ],
+      "id": "6f3c071f-c5c3-4803-b087-5e773112dbc8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://hpzohppfcibdpfazptmd.supabase.co/storage/v1/object/cvs/{{$(\"Normalize Input\").item.json.storagePath}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/octet-stream"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3632,
+        1344
+      ],
+      "id": "1d664601-f65f-4fc4-a040-cf78ba483d95",
+      "name": "HTTP Request1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "8xvdNK73CsjDP3ai",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "o4-mini",
+          "mode": "list",
+          "cachedResultName": "O4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Eres un asistente experto en selección de personal.\nTu tarea es leer este texto de la cv {{ $json.text }} un JSON con esta estructura EXACTA  Y NO USES \\n .:\n\n{\n  \"personal_information\": {\n    \"full_name\": string,\n    \"email\": string,\n    \"phone\": string,\n    \"location\": string,\n    \"linkedin\": string | null\n  },\n  \"experience\": [\n    {\n      \"company\": string,\n      \"role\": string,\n      \"start_date\": string | null,\n      \"end_date\": string | null,\n      \"description\": string | null,\n      \"technologies\": [string]\n    }\n  ],\n  \"education\": [\n    {\n      \"institution\": string,\n      \"degree\": string,\n      \"start_date\": string | null,\n      \"end_date\": string | null\n    }\n  ],\n  \"skills\": [\n    {\n      \"name\": string,\n      \"level\": string | null\n    }\n  ],\n  \"projects\": [\n    {\n      \"name\": string,\n      \"description\": string | null,\n      \"technologies\": [string]\n    }\n  ]\n}\n\nDebes respetar los nombres de las claves y el tipo de datos.\nSi algo no está claro, usa null o arreglos vacíos.\n\nA continuación te doy ejemplos reales de otros perfiles de la MISMA vacante.\nÚsalos solo como referencia de formato (no copies los datos):\n\n{{ JSON.stringify($(\"Get a row\").all().map(item => item.json)) }}\n\nResponde SOLO con el JSON final, sin texto adicional.\n"
+            },
+            {
+              "content": "=Vacant ID: {{ $(\"Normalize Input\").all()[0].json.vacant_id }}\nCV URL (solo referencia): {{ $(\"Normalize Input\").all()[0].json.cv_url }}\n\n\nLee el archivo PDF adjunto y devuélvelo en la estructura JSON indicada.\n\n\nEn el nodo, si tu versión tiene opción de “Response Format: JSON” o “JSON mode”, actívala.\nSi no, luego parseamos el texto en el siguiente Function.\n\nConecta: Upload CV to Storage → Parse CV with OpenAI.\n\n8. Function – Build Profile Payload\n\nNombre: Build Profile Payload\n\nEste nodo arma el objeto listo para insertarlo en la tabla profile.\n\nSi OpenAI ya devuelve JSON como objeto:\n\nconst parsed = items[0].json; // salida del nodo OpenAI\n\nreturn [\n  {\n    json: {\n      vacant_id: $node[\"Normalize Input\"].json.vacant_id,\n      personal_information: parsed.personal_information || {},\n      experience: parsed.experience || [],\n      education: parsed.education || [],\n      skills: parsed.skills || [],\n      projects: parsed.projects || [],\n      cv_url: $node[\"Normalize Input\"].json.cv_url,\n      status: \"pending\"\n    }\n  }\n];\n\n\nSi te devuelve un string:\n\nconst raw = items[0].json;\nconst parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n\nreturn [\n  {\n    json: {\n      vacant_id: $node[\"Normalize Input\"].json.vacant_id,\n      personal_information: parsed.personal_information || {},\n      experience: parsed.experience || [],\n      education: parsed.education || [],\n      skills: parsed.skills || [],\n      projects: parsed.projects || [],\n      cv_url: $node[\"Normalize Input\"].json.cv_url,\n      status: \"pending\"\n    }\n  }\n];"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        3824,
+        1344
+      ],
+      "id": "77315c2b-7f2f-4917-9125-6d5c06262605",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "wAUrNSWDIwjCNTWJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Tomamos el objeto crudo que viene del nodo de OpenAI\nconst raw = items[0].json;\n\n// 2. Navegamos hasta el texto que contiene el JSON\nconst text =\n  raw?.output?.[0]?.content?.[0]?.text;\n\nif (!text) {\n  throw new Error(\"No se encontró el texto con el JSON en la respuesta de la IA\");\n}\n\n// 3. Parseamos ese texto a objeto\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch (error) {\n  // Try to give more context on the error and suggest solution\n  throw new Error(\n    \"Error parseando el JSON de la IA: \" + error.message +\n    \"\\nPosible causa: El JSON generado no tiene comillas dobles en los nombres de las propiedades. \" +\n    \"\\nSolución: Ajusta tu prompt de OpenAI para que siempre devuelva JSON válido (todas las claves entre \\\").\" +\n    \"\\n\\nTexto recibido:\\n\" + text\n  );\n}\n\n// 4. Construimos el payload para la tabla profile\nreturn [\n  {\n    json: {\n      vacant_id: $node[\"Normalize Input\"].json.vacant_id,\n      personal_information: parsed.personal_information || {},\n      experience: parsed.experience || [],\n      education: parsed.education || [],\n      skills: parsed.skills || [],\n      projects: parsed.projects || [],\n      cv_url: $node[\"Normalize Input\"].json.cv_url,\n      status: \"pending\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        1344
+      ],
+      "id": "44c355ab-6057-4149-8354-1410f9c52f69",
+      "name": "Build Profile Payload"
+    },
+    {
+      "parameters": {
+        "tableId": "profile",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "vacant_id",
+              "fieldValue": "={{ $json.vacant_id }}"
+            },
+            {
+              "fieldId": "personal_information",
+              "fieldValue": "={{ $json.personal_information }}"
+            },
+            {
+              "fieldId": "experience",
+              "fieldValue": "={{ $json.experience }}"
+            },
+            {
+              "fieldId": "education",
+              "fieldValue": "={{ $json.education }}"
+            },
+            {
+              "fieldId": "skills",
+              "fieldValue": "={{ $json.skills }}"
+            },
+            {
+              "fieldId": "projects",
+              "fieldValue": "={{ $json.projects }}"
+            },
+            {
+              "fieldId": "cv_url",
+              "fieldValue": "={{ $json.cv_url }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4352,
+        1344
+      ],
+      "id": "f7407b8e-7026-4bf6-8284-9692606be35c",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "K4vhQ15VdOrclHvz",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const profile = items[0].json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      profile_id: profile.id,\n      vacant_id: profile.vacant_id,\n      cv_url: profile.cv_url,\n      status: \"created\"\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        1344
+      ],
+      "id": "f4c6fa50-8aba-459d-bed4-7d2051f3bcc9",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        1552
+      ],
+      "id": "367d72dd-3a11-47a8-ac0e-69e690616556",
+      "name": "Extract from File"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Is CV?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        []
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Build Profile Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Profile Payload": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is CV?": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        []
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "errorWorkflow": "zfk4dwLStJ3tXwLt"
+  },
+  "versionId": "1f69d85b-87dd-4575-a257-b3507b3c9376",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5512260e914b2516b5e80fe6cd8964244af7acf68dc9e32c9d4e58af1e6ff7a4"
+  },
+  "id": "zfk4dwLStJ3tXwLt",
+  "tags": []
+}
